@@ -6,3 +6,260 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum AccountType {
+  CREDIT_CARD
+  BANK_ACCOUNT
+  CASH
+  WALLET
+  OTHER
+}
+
+enum RelationshipType {
+  FAMILY
+  FRIEND
+  OTHER
+}
+
+enum CategoryType {
+  EXPENSE
+  INCOME
+  TRANSFER
+  LOAN
+}
+
+// -----------------------------------------------------------------------------
+// MODELS (BLOCK 1)
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  accounts     Account[]
+  people       Person[]
+  categories   Category[]
+  transactions Transaction[]
+  loans        Loan[]
+  bills        Bill[]
+
+  @@map("users")
+}
+
+model Account {
+  id       String      @id @default(uuid())
+  userId   String      @map("user_id")
+  name     String
+  type     AccountType
+  currency String      @default("BRL")
+
+  // Para cartões de crédito
+  creditLimit Decimal? @map("credit_limit") @db.Decimal(12, 2)
+  billingDay  Int?     @map("billing_day")
+  dueDay      Int?     @map("due_day")
+
+  // Metadados
+  institutionName String? @map("institution_name")
+  last4           String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  loansOriginated Loan[]
+
+  @@map("accounts")
+}
+
+model Person {
+  id               String           @id @default(uuid())
+  userId           String           @map("user_id")
+  name             String
+  relationshipType RelationshipType @map("relationship_type")
+  phone            String?
+  email            String?
+  notes            String?          @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  loans        Loan[]
+
+  @@map("people")
+}
+
+model Category {
+  id               String       @id @default(uuid())
+  userId           String       @map("user_id")
+  name             String
+  type             CategoryType
+  parentCategoryId String?      @map("parent_category_id")
+  color            String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentCategory Category?     @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id], onDelete: Restrict)
+  subCategories  Category[]    @relation("CategoryHierarchy")
+  transactions   Transaction[]
+  bills          Bill[]
+
+  @@map("categories")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS (BLOCK 2 & 3)
+// -----------------------------------------------------------------------------
+enum TransactionType {
+  PURCHASE
+  BILL_PAYMENT
+  INCOME
+  TRANSFER_OUT
+  TRANSFER_IN
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
+  FEE
+  INTEREST
+}
+
+enum TransactionDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LoanStatus {
+  OPEN
+  CLOSED
+  IN_DEFAULT
+}
+
+enum LoanScheduleStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum BillStatus {
+  OPEN
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+// -----------------------------------------------------------------------------
+// MODELS (BLOCK 2) - TRANSACTIONS
+// -----------------------------------------------------------------------------
+
+model Transaction {
+  id                  String               @id @default(uuid())
+  userId              String               @map("user_id")
+  accountId           String               @map("account_id")
+  personId            String?              @map("person_id")
+  categoryId          String?              @map("category_id")
+  type                TransactionType
+  amount              Decimal              @db.Decimal(12, 2)
+  direction           TransactionDirection
+  description         String?
+  transactionDate     DateTime             @map("transaction_date")
+  postingDate         DateTime?            @map("posting_date")
+  installmentNumber   Int?                 @map("installment_number")
+  installmentTotal    Int?                 @map("installment_total")
+  parentTransactionId String?              @map("parent_transaction_id")
+  externalReference   String?              @map("external_reference")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  person   Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  parentTransaction Transaction?  @relation("TransactionHierarchy", fields: [parentTransactionId], references: [id], onDelete: Restrict)
+  subTransactions   Transaction[] @relation("TransactionHierarchy")
+
+  loanSchedules LoanSchedule[]
+  bills         Bill[]
+
+  @@map("transactions")
+}
+
+// -----------------------------------------------------------------------------
+// MODELS (BLOCK 3) - LOANS & BILLS
+// -----------------------------------------------------------------------------
+
+model Loan {
+  id              String     @id @default(uuid())
+  userId          String     @map("user_id")
+  personId        String     @map("person_id")
+  originAccountId String     @map("origin_account_id")
+  principalAmount Decimal    @map("principal_amount") @db.Decimal(12, 2)
+  interestRate    Decimal?   @map("interest_rate") @db.Decimal(5, 4)
+  startDate       DateTime   @map("start_date")
+  expectedEndDate DateTime?  @map("expected_end_date")
+  status          LoanStatus @default(OPEN)
+  description     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  person        Person  @relation(fields: [personId], references: [id], onDelete: Restrict)
+  originAccount Account @relation(fields: [originAccountId], references: [id], onDelete: Restrict)
+
+  schedules LoanSchedule[]
+
+  @@map("loans")
+}
+
+model LoanSchedule {
+  id            String             @id @default(uuid())
+  loanId        String             @map("loan_id")
+  dueDate       DateTime           @map("due_date")
+  principalDue  Decimal            @map("principal_due") @db.Decimal(12, 2)
+  interestDue   Decimal            @default(0) @map("interest_due") @db.Decimal(12, 2)
+  totalDue      Decimal            @map("total_due") @db.Decimal(12, 2)
+  status        LoanScheduleStatus @default(PENDING)
+  transactionId String?            @map("transaction_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  loan        Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@map("loan_schedules")
+}
+
+model Bill {
+  id                   String     @id @default(uuid())
+  userId               String     @map("user_id")
+  categoryId           String?    @map("category_id")
+  payeeName            String     @map("payee_name")
+  description          String?
+  dueDate              DateTime   @map("due_date")
+  amount               Decimal    @db.Decimal(12, 2)
+  barcode              String?
+  status               BillStatus @default(OPEN)
+  paymentTransactionId String?    @unique @map("payment_transaction_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category           Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  paymentTransaction Transaction? @relation(fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+
+  @@map("bills")
+}
