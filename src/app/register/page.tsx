@@ -57,84 +57,89 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-      <div className="w-full max-w-md space-y-8 rounded-2xl bg-zinc-900 p-8 shadow-xl border border-zinc-800">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 overflow-hidden">
+      {/* Ambient Glow Effects */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-0 w-[400px] h-[400px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="relative w-full max-w-md space-y-8 rounded-3xl bg-zinc-900/80 backdrop-blur-xl p-8 shadow-2xl border border-white/5">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-white mb-2">
             Criar Conta
           </h2>
-          <p className="text-sm text-zinc-400">
-            Junte-se ao <span className="text-[#39FF14]">ThinkCard</span> hoje mesmo.
+          <p className="text-sm text-muted-foreground">
+            Junte-se ao <span className="text-primary font-medium">ThinkCard</span> hoje mesmo.
           </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
           {serverError && (
-            <div className="rounded-md bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400">
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 flex items-center gap-3">
+               <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
               {serverError}
             </div>
           )}
 
-          <div className="space-y-4 rounded-md shadow-sm">
-            <div>
-              <Label htmlFor="name" className="text-zinc-300">
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-zinc-300 font-medium ml-1">
                 Nome completo
               </Label>
               <Input
                 id="name"
                 type="text"
                 autoComplete="name"
-                className="mt-1 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-[#39FF14]"
+                className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
                 placeholder="Seu nome"
                 {...register("name")}
               />
               {errors.name && (
-                <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>
+                <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">{errors.name.message}</p>
               )}
             </div>
             
-            <div>
-              <Label htmlFor="email" className="text-zinc-300 mt-4 block">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-zinc-300 font-medium ml-1 block">
                 Email
               </Label>
               <Input
                 id="email"
                 type="email"
                 autoComplete="email"
-                className="mt-1 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-[#39FF14]"
+                className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
                 placeholder="seu@email.com"
                 {...register("email")}
               />
               {errors.email && (
-                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+                <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">{errors.email.message}</p>
               )}
             </div>
 
-            <div>
-              <Label htmlFor="password" className="text-zinc-300 mt-4 block">
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-zinc-300 font-medium ml-1 block">
                 Senha
               </Label>
               <Input
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                className="mt-1 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-[#39FF14]"
+                className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
                 placeholder="••••••••"
                 {...register("password")}
               />
               {errors.password && (
-                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+                 <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">{errors.password.message}</p>
               )}
-              <p className="text-xs text-zinc-500 mt-2">
-                Mínimo 8 caracteres, 1 maiúscula, 1 número e 1 caractere especial.
+              <p className="text-[11px] text-zinc-500 mt-2 ml-1 leading-relaxed">
+                Mínimo 8 caracteres, 1 maiúscula, 1 número e 1 especial.
               </p>
             </div>
           </div>
 
-          <div>
+          <div className="pt-2">
             <Button
               type="submit"
-              className="w-full bg-[#39FF14] text-zinc-950 hover:bg-[#32E612] font-semibold tracking-wide"
+              className="w-full bg-primary text-zinc-950 hover:bg-primary/90 font-bold tracking-wide h-12 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Criando conta..." : "Criar Conta"}
@@ -142,11 +147,11 @@ export default function RegisterPage() {
           </div>
         </form>
 
-        <p className="mt-10 text-center text-sm text-zinc-400">
+        <p className="pt-6 text-center text-sm text-zinc-400">
           Já possui uma conta?{" "}
           <Link
             href="/login"
-            className="font-medium text-[#00FFFF] hover:text-[#00CCCC] transition-colors"
+            className="font-semibold text-[#00FFFF] hover:text-white transition-colors ml-1"
           >
             Faça login
           </Link>
