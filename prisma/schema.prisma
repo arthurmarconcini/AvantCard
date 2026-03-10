@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma/client"
 }
 
 datasource db {
@@ -43,12 +42,13 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  accounts     Account[]
-  people       Person[]
-  categories   Category[]
-  transactions Transaction[]
-  loans        Loan[]
-  bills        Bill[]
+  accounts            Account[]
+  people              Person[]
+  categories          Category[]
+  transactions        Transaction[]
+  loans               Loan[]
+  bills               Bill[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -262,4 +262,21 @@ model Bill {
   paymentTransaction Transaction? @relation(fields: [paymentTransactionId], references: [id], onDelete: SetNull)
 
   @@map("bills")
+}
+
+// -----------------------------------------------------------------------------
+// MODELS (BLOCK 4) - AUTH
+// -----------------------------------------------------------------------------
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
