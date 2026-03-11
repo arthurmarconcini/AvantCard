@@ -115,12 +115,12 @@ export function AddAccountModal() {
 
               <div className="col-span-2 space-y-2">
                 <Label className="text-zinc-300 font-medium">Tipo de Conta</Label>
-                <Controller
+                <Controller                  
                   control={control}
                   name="type"
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <SelectTrigger className="h-11 bg-black/20 border-white/5 text-white focus:ring-primary focus:border-primary/50 transition-all rounded-xl">
+                      <SelectTrigger className="w-full h-11 bg-black/20 border-white/5 text-white focus:ring-primary focus:border-primary/50 transition-all rounded-xl relative px-3 py-2 flex justify-between items-center text-left data-placeholder:text-zinc-600">
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-900 border-white/10 rounded-xl">
@@ -190,7 +190,7 @@ export function AddAccountModal() {
                 </div>
 
                 <div className="col-span-1 space-y-2">
-                  <Label className="text-zinc-300 font-medium text-xs">Dias antes do venc. (Fechamento)</Label>
+                  <Label className="text-zinc-300 font-medium">Dias p/ Fechamento</Label>
                   <Input 
                     {...register("billingDay")}
                     type="number"
@@ -203,7 +203,7 @@ export function AddAccountModal() {
                 </div>
 
                 <div className="col-span-1 space-y-2">
-                  <Label className="text-zinc-300 font-medium text-xs">Dia do Vencimento</Label>
+                  <Label className="text-zinc-300 font-medium">Dia de Vencimento</Label>
                   <Input 
                     {...register("dueDay")}
                     type="number"
