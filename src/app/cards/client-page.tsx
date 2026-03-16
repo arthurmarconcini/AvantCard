@@ -1,0 +1,258 @@
+"use client";
+
+import { useState } from "react";
+import { CreditCard, Plus, ArrowDownRight, Tag, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { AddPurchaseModal } from "@/components/add-purchase-modal";
+
+// Formatadores
+const formatCurrency = (valueInCents: number) => {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(valueInCents / 100);
+};
+
+const formatDate = (date: Date) => {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(date));
+};
+
+// Tipagens baseadas nos dados do Prisma retornados p/ o client
+interface Transaction {
+  id: string;
+  amount: number;
+  description: string | null;
+  transactionDate: Date;
+  installmentTotal?: number | null;
+  installmentNumber?: number | null;
+  category?: { name: string } | null;
+  person?: { name: string } | null;
+}
+
+interface Card {
+  id: string;
+  name: string;
+  last4: string | null;
+  dueDay: number | null;
+  creditLimit: number | null;
+  transactions: Transaction[];
+}
+
+export function CardsClientPage({
+  cards,
+  persons,
+  categories,
+}: {
+  cards: Card[];
+  persons: { id: string; name: string }[];
+  categories: { id: string; name: string }[];
+}) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState(cards.length > 0 ? cards[0].id : null);
+
+  const selectedCard = cards.find((c) => c.id === selectedCardId);
+
+  // Calcula o total gasto no cartão selecionado
+  const totalSpent = selectedCard?.transactions.reduce(
+    (acc: number, t: Transaction) => acc + Number(t.amount),
+    0
+  ) || 0;
+
+  const creditLimit = selectedCard?.creditLimit ? Number(selectedCard.creditLimit) : 0;
+  const availableLimit = Math.max(0, creditLimit - totalSpent);
+  const limitPercentage = creditLimit > 0 ? (totalSpent / creditLimit) * 100 : 0;
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Cartões de Crédito</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Gerencie seus limites, faturas e controle os gastos partilhados.
+          </p>
+        </div>
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl font-bold h-11 px-6 shadow-[0_0_20px_rgba(57,255,20,0.2)] transition-shadow hover:shadow-[0_0_30px_rgba(57,255,20,0.4)]"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Nova Compra
+        </Button>
+      </div>
+
+      {cards.length === 0 ? (
+        <div className="bg-card/50 border border-white/5 rounded-3xl p-12 text-center flex flex-col items-center justify-center">
+          <CreditCard className="w-16 h-16 text-zinc-700 mb-4" />
+          <h2 className="text-xl font-bold mb-2">Nenhum Cartão Encontrado</h2>
+          <p className="text-zinc-500 mb-6 max-w-sm">Você não possui nenhum cartão de crédito configurado. Vá até a aba de Contas para adicionar seu primeiro cartão.</p>
+        </div>
+      ) : (
+        <>
+          {/* CARDS LIST (HORIZONTAL SCROLL OR GRID) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {cards.map((card) => {
+              const spent = card.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
+              const limit = card.creditLimit ? Number(card.creditLimit) : 0;
+              const isSelected = selectedCardId === card.id;
+
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => setSelectedCardId(card.id)}
+                  className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300 border backdrop-blur-xl ${
+                    isSelected
+                      ? "bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20"
+                      : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
+                  }`}
+                >
+                  {/* Efeito Glow interno se selecionado */}
+                  {isSelected && (
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
+                  )}
+
+                  <div className="flex justify-between items-start mb-8 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-white/5 text-zinc-400'}`}>
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-lg">{card.name}</p>
+                        <p className="text-xs text-zinc-500 font-mono tracking-widest">
+                          •••• {card.last4 || "0000"}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={isSelected ? "border-primary/30 text-primary bg-primary/10" : "border-white/10 text-zinc-400"}>
+                      Dia {card.dueDay || "--"}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 relative z-10">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-400">Fatura Atual</span>
+                      <span className="font-bold">{formatCurrency(spent)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-500 text-xs">Limite Disp.</span>
+                      <span className="text-zinc-400 text-xs">{formatCurrency(Math.max(0, limit - spent))}</span>
+                    </div>
+                    
+                    {/* Progress Bar Custom */}
+                    <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
+                       <div 
+                         className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-primary' : 'bg-zinc-600'}`}
+                         style={{ width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%` }}
+                       />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* TRANSACTIONS LIST FOR SELECTED CARD */}
+          {selectedCard && (
+            <div className="bg-card border border-white/5 rounded-3xl p-6 md:p-8 mt-8 fade-in-up">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    Fatura <span className="text-primary">{selectedCard.name}</span>
+                  </h3>
+                  <p className="text-sm text-zinc-500 mt-1">Transações mais recentes vinculadas a este cartão.</p>
+                </div>
+                
+                <div className="text-right flex flex-col items-end">
+                   <p className="text-sm font-medium text-zinc-400 mb-1">Total da Fatura</p>
+                   <p className="text-3xl font-extrabold text-white">{formatCurrency(totalSpent)}</p>
+                   {creditLimit > 0 && (
+                     <div className="mt-2 w-48">
+                        <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                          <span>Disp: <span className="text-primary">{formatCurrency(availableLimit)}</span></span>
+                          <span>{limitPercentage.toFixed(0)}% uso</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full bg-primary transition-all duration-500"
+                            style={{ width: `${Math.min(100, limitPercentage)}%` }}
+                          />
+                        </div>
+                     </div>
+                   )}
+                </div>
+              </div>
+
+              {selectedCard.transactions.length === 0 ? (
+                <div className="py-12 border-2 border-dashed border-white/5 rounded-2xl text-center">
+                  <p className="text-zinc-500 text-sm">Nenhuma compra registrada neste cartão ainda.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedCard.transactions.map((t: Transaction) => (
+                    <div key={t.id} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-950/30 border border-white/5 hover:border-white/10 hover:bg-zinc-900/60 transition-colors">
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
+                          <ArrowDownRight className="w-5 h-5" />
+                        </div>
+                        
+                        <div className="flex flex-col gap-1">
+                          <p className="font-semibold text-sm">{t.description}</p>
+                          <div className="flex items-center gap-3 text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
+                            <span>{formatDate(t.transactionDate)}</span>
+                            {t.category && (
+                              <span className="flex items-center gap-1">
+                                <span className="w-1 h-1 rounded-full bg-zinc-600" />
+                                <Tag className="w-3 h-3 ml-1" />
+                                {t.category.name}
+                              </span>
+                            )}
+                            {t.person && (
+                              <span className="flex items-center gap-1 text-primary/70">
+                                <span className="w-1 h-1 rounded-full bg-primary/30" />
+                                <User className="w-3 h-3 ml-1" />
+                                {t.person.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right flex flex-col items-end">
+                        <span className="font-bold text-sm">{formatCurrency(Number(t.amount))}</span>
+                        {t.installmentTotal && t.installmentTotal > 1 ? (
+                           <Badge variant="outline" className="mt-1 py-0 text-[10px] border-white/10 text-zinc-400 bg-white/5">
+                             {t.installmentNumber}/{t.installmentTotal}
+                           </Badge>
+                        ) : null}
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* MODAL */}
+      <AddPurchaseModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        cards={cards.map((c) => {
+          const spent = c.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
+          const limit = c.creditLimit ? Number(c.creditLimit) : 0;
+          return { id: c.id, name: c.name, availableLimit: Math.max(0, limit - spent) };
+        })}
+        categories={categories}
+        persons={persons}
+        defaultAccountId={selectedCardId || undefined}
+      />
+    </div>
+  );
+}
