@@ -14,7 +14,6 @@ export async function getCardsAndTransactions() {
 
   const userId = session.user.id;
 
-  // Busca as contas do tipo cartão de crédito com suas transações (e as pessoas envolvidas)
   const cards = await prisma.account.findMany({
     where: {
       userId,
@@ -33,7 +32,6 @@ export async function getCardsAndTransactions() {
     },
   });
 
-  // Serializa os valores Decimal para Number puro
   return cards.map(card => ({
     ...card,
     creditLimit: card.creditLimit ? Number(card.creditLimit) : null,
@@ -85,7 +83,6 @@ export async function createPurchase(data: {
 
   const userId = session.user.id;
 
-  // Validação extra p/ ter certeza de que o cartão pertence ao utilizador
   const account = await prisma.account.findUnique({
     where: {
       id: data.accountId,
@@ -97,30 +94,83 @@ export async function createPurchase(data: {
     throw new Error("Cartão não encontrado ou não pertence a este usuário.");
   }
 
-  // Cria a transação (compra via cartão sempre entra como DEBIT e PURCHASE)
-  const transaction = await prisma.transaction.create({
-    data: {
+  const groupedTransactions = await prisma.transaction.groupBy({
+    by: ['direction'],
+    where: { accountId: data.accountId },
+    _sum: { amount: true },
+  });
+
+  let totalSpent = 0;
+  for (const group of groupedTransactions) {
+    if (group.direction === "DEBIT") {
+      totalSpent += Number(group._sum.amount || 0);
+    } else if (group.direction === "CREDIT") {
+      totalSpent -= Number(group._sum.amount || 0);
+    }
+  }
+
+  const creditLimit = Number(account.creditLimit || 0);
+  const availableLimit = Math.max(0, creditLimit - totalSpent);
+
+  if (data.amount > availableLimit) {
+    throw new Error(`O valor excede o limite disponível no cartão.`);
+  }
+
+  const totalInstallments = data.installmentTotal && data.installmentTotal > 1 ? data.installmentTotal : 1;
+  const tDate = new Date(data.transactionDate);
+  const closingDay = account.billingDay || (account.dueDay ? account.dueDay - 7 : 1);
+  const dueDay = account.dueDay || 1;
+  
+  let baseMonthOffset = 0;
+  if (tDate.getDate() >= closingDay) {
+    baseMonthOffset = 1;
+  }
+  if (dueDay < closingDay) {
+    baseMonthOffset += 1;
+  }
+
+  const baseAmount = data.amount;
+  const installmentAmount = Math.floor(baseAmount / totalInstallments);
+  const remainder = baseAmount - (installmentAmount * totalInstallments);
+
+  const transactionsData = [];
+
+  for (let i = 1; i <= totalInstallments; i++) {
+    const currentAmount = i === 1 ? installmentAmount + remainder : installmentAmount;
+    const postingDate = new Date(tDate.getFullYear(), tDate.getMonth() + baseMonthOffset + (i - 1), dueDay, 12, 0, 0);
+
+    transactionsData.push({
       userId,
       accountId: data.accountId,
-      type: "PURCHASE",
-      direction: "DEBIT",
-      amount: data.amount, // Valor já validado como centavos na form
+      type: "PURCHASE" as const,
+      direction: "DEBIT" as const,
+      amount: currentAmount,
       description: data.description,
-      transactionDate: data.transactionDate,
+      transactionDate: i === 1 ? tDate : postingDate,
+      postingDate: postingDate,
       categoryId: data.categoryId || null,
       personId: data.personId || null,
-      installmentNumber: data.installmentNumber || null,
-      installmentTotal: data.installmentTotal || null,
-    },
-  });
+      installmentNumber: totalInstallments > 1 ? i : null,
+      installmentTotal: totalInstallments > 1 ? totalInstallments : null,
+    });
+  }
+
+  let savedTransactions;
+  if (transactionsData.length === 1) {
+    const t = await prisma.transaction.create({ data: transactionsData[0] });
+    savedTransactions = [t];
+  } else {
+    const creates = transactionsData.map(tData => prisma.transaction.create({ data: tData }));
+    savedTransactions = await prisma.$transaction(creates);
+  }
 
   revalidatePath("/cards");
 
   return { 
     success: true, 
     transaction: {
-      ...transaction,
-      amount: Number(transaction.amount) // Decimal para Number
+      ...savedTransactions[0],
+      amount: Number(savedTransactions[0].amount)
     } 
   };
 }

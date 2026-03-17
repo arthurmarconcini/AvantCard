@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Plus, ArrowDownRight, Tag, User } from "lucide-react";
+import { CreditCard, Plus, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddPurchaseModal } from "@/components/add-purchase-modal";
@@ -25,8 +25,10 @@ const formatDate = (date: Date) => {
 interface Transaction {
   id: string;
   amount: number;
+  direction: "DEBIT" | "CREDIT";
   description: string | null;
   transactionDate: Date;
+  postingDate?: Date | null;
   installmentTotal?: number | null;
   installmentNumber?: number | null;
   category?: { name: string } | null;
@@ -37,6 +39,7 @@ interface Card {
   id: string;
   name: string;
   last4: string | null;
+  billingDay: number | null;
   dueDay: number | null;
   creditLimit: number | null;
   transactions: Transaction[];
@@ -56,25 +59,57 @@ export function CardsClientPage({
 
   const selectedCard = cards.find((c) => c.id === selectedCardId);
 
-  // Calcula o total gasto no cartão selecionado
-  const totalSpent = selectedCard?.transactions.reduce(
-    (acc: number, t: Transaction) => acc + Number(t.amount),
+  const getInvoiceDateForTransaction = (t: Transaction, card: Card) => {
+    if (t.postingDate) return new Date(t.postingDate);
+
+    const tDate = new Date(t.transactionDate);
+    const closingDay = card.billingDay || (card.dueDay ? card.dueDay - 7 : 1);
+    const dueDay = card.dueDay || 1;
+    
+    let baseMonthOffset = 0;
+    if (tDate.getDate() >= closingDay) {
+      baseMonthOffset = 1;
+    }
+    if (dueDay < closingDay) {
+      baseMonthOffset += 1;
+    }
+    
+    return new Date(tDate.getFullYear(), tDate.getMonth() + baseMonthOffset, dueDay, 12, 0, 0);
+  };
+
+  const [invoiceDate, setInvoiceDate] = useState(new Date());
+  
+  const previousMonth = () => {
+    setInvoiceDate(new Date(invoiceDate.getFullYear(), invoiceDate.getMonth() - 1, 1));
+  };
+  const nextMonth = () => {
+    setInvoiceDate(new Date(invoiceDate.getFullYear(), invoiceDate.getMonth() + 1, 1));
+  };
+  
+  const invoiceMonthName = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(invoiceDate);
+
+  const totalGlobalSpent = selectedCard?.transactions.reduce(
+    (acc: number, t: Transaction) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)),
     0
   ) || 0;
 
+  const currentInvoiceTransactions = selectedCard?.transactions.filter(t => {
+    const d = getInvoiceDateForTransaction(t, selectedCard);
+    return d.getMonth() === invoiceDate.getMonth() && d.getFullYear() === invoiceDate.getFullYear();
+  }) || [];
+
+  const invoiceSpent = currentInvoiceTransactions.reduce((acc, t) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)), 0);
+
   const creditLimit = selectedCard?.creditLimit ? Number(selectedCard.creditLimit) : 0;
-  const availableLimit = Math.max(0, creditLimit - totalSpent);
-  const limitPercentage = creditLimit > 0 ? (totalSpent / creditLimit) * 100 : 0;
+  const availableLimit = Math.max(0, creditLimit - totalGlobalSpent);
+  const limitPercentage = creditLimit > 0 ? (totalGlobalSpent / creditLimit) * 100 : 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Cartões de Crédito</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Gerencie seus limites, faturas e controle os gastos partilhados.
-          </p>
+          <h1 className="text-3xl font-extrabold text-white mb-2">Cartões de Crédito</h1>
+          <p className="text-zinc-400">Gerencie seus limites, faturas e gastos parcelados.</p>
         </div>
         <Button
           onClick={() => setIsModalOpen(true)}
@@ -93,12 +128,13 @@ export function CardsClientPage({
         </div>
       ) : (
         <>
-          {/* CARDS LIST (HORIZONTAL SCROLL OR GRID) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
             {cards.map((card) => {
               const spent = card.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
               const limit = card.creditLimit ? Number(card.creditLimit) : 0;
               const isSelected = selectedCardId === card.id;
+
+              const availableLimit = Math.max(0, limit - spent);
 
               return (
                 <div
@@ -110,7 +146,6 @@ export function CardsClientPage({
                       : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
                   }`}
                 >
-                  {/* Efeito Glow interno se selecionado */}
                   {isSelected && (
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
                   )}
@@ -139,10 +174,9 @@ export function CardsClientPage({
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-zinc-500 text-xs">Limite Disp.</span>
-                      <span className="text-zinc-400 text-xs">{formatCurrency(Math.max(0, limit - spent))}</span>
+                      <span className="text-zinc-400 text-xs">{formatCurrency(availableLimit)}</span>
                     </div>
                     
-                    {/* Progress Bar Custom */}
                     <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
                        <div 
                          className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-primary' : 'bg-zinc-600'}`}
@@ -155,20 +189,30 @@ export function CardsClientPage({
             })}
           </div>
 
-          {/* TRANSACTIONS LIST FOR SELECTED CARD */}
           {selectedCard && (
             <div className="bg-card border border-white/5 rounded-3xl p-6 md:p-8 mt-8 fade-in-up">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
                   <h3 className="text-xl font-bold flex items-center gap-2">
                     Fatura <span className="text-primary">{selectedCard.name}</span>
                   </h3>
-                  <p className="text-sm text-zinc-500 mt-1">Transações mais recentes vinculadas a este cartão.</p>
+                  
+                  <div className="flex items-center gap-3 mt-3">
+                    <Button variant="outline" size="icon" onClick={previousMonth} className="h-8 w-8 rounded-full border-white/10 hover:bg-white/10 text-zinc-400 bg-transparent">
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm font-semibold capitalize min-w-[120px] text-center text-zinc-200">
+                      {invoiceMonthName}
+                    </span>
+                    <Button variant="outline" size="icon" onClick={nextMonth} className="h-8 w-8 rounded-full border-white/10 hover:bg-white/10 text-zinc-400 bg-transparent">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="text-right flex flex-col items-end">
                    <p className="text-sm font-medium text-zinc-400 mb-1">Total da Fatura</p>
-                   <p className="text-3xl font-extrabold text-white">{formatCurrency(totalSpent)}</p>
+                   <p className="text-3xl font-extrabold text-white">{formatCurrency(invoiceSpent)}</p>
                    {creditLimit > 0 && (
                      <div className="mt-2 w-48">
                         <div className="flex justify-between text-xs text-zinc-500 mb-1">
@@ -186,13 +230,13 @@ export function CardsClientPage({
                 </div>
               </div>
 
-              {selectedCard.transactions.length === 0 ? (
+              {currentInvoiceTransactions.length === 0 ? (
                 <div className="py-12 border-2 border-dashed border-white/5 rounded-2xl text-center">
-                  <p className="text-zinc-500 text-sm">Nenhuma compra registrada neste cartão ainda.</p>
+                  <p className="text-zinc-500 text-sm">Nenhuma compra faturada neste mês.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {selectedCard.transactions.map((t: Transaction) => (
+                  {currentInvoiceTransactions.map((t: Transaction) => (
                     <div key={t.id} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-950/30 border border-white/5 hover:border-white/10 hover:bg-zinc-900/60 transition-colors">
                       
                       <div className="flex items-center gap-4">
@@ -240,7 +284,6 @@ export function CardsClientPage({
         </>
       )}
 
-      {/* MODAL */}
       <AddPurchaseModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
