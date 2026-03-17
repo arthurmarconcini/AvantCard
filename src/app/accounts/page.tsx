@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 // Formata valores inteiros (centavos) para Real Brasileiro (BRL)
 function formatCurrency(cents: number) {
@@ -25,13 +26,12 @@ export default async function AccountsPage() {
 
   const accounts = await prisma.account.findMany({
     where: { userId },
+    include: {
+      transactions: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 
-  // Base logic for balance. Credit limit is just limit, balance logic depends on transactions. 
-  // For now, we will sum credit Limits + basic "balance" logic if we had one. 
-  // Since we don't have a direct "balance" column in the schema yet, we will mock the current representation
-  // assuming accounts have a `creditLimit` and bank accounts might have 0 until transactions are implemented.
   const totalBalance = accounts.reduce(
     (acc, account) => acc + (account.creditLimit ? Number(account.creditLimit) : 0),
     0
@@ -82,48 +82,93 @@ export default async function AccountsPage() {
          </div>
       ) : (
         <div className="relative z-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 pt-4">
-          {accounts.map((account) => (
-            <div key={account.id} className="bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-primary/30 hover:bg-zinc-900/80 rounded-3xl p-6 transition-all duration-300 group flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border border-white/10 ${account.type === 'CREDIT_CARD' ? 'bg-blue-500/10 text-[#00FFFF]' : 'bg-zinc-800 text-zinc-300'}`}>
-                      {account.type === "CREDIT_CARD" ? (
-                        <CreditCard className="h-6 w-6" />
+          {accounts.map((account) => {
+            const limit = account.creditLimit ? Number(account.creditLimit) : 0;
+            let spent = 0;
+            let balance = 0;
+
+            if (account.type === "CREDIT_CARD") {
+              spent = account.transactions.reduce((acc, t) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)), 0);
+            } else {
+              balance = account.transactions.reduce((acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)), 0);
+            }
+
+            const availableLimit = Math.max(0, limit - spent);
+            const isCreditCard = account.type === "CREDIT_CARD";
+
+            return (
+              <div 
+                key={account.id} 
+                className="relative p-6 rounded-3xl overflow-hidden transition-all duration-300 border backdrop-blur-xl bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60 group flex flex-col justify-between"
+              >
+                <div className="flex justify-between items-start mb-8 relative z-10 gap-2">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isCreditCard ? 'bg-primary/10 text-primary' : 'bg-white/5 text-zinc-400'}`}>
+                      {isCreditCard ? (
+                        <CreditCard className="w-5 h-5" />
+                      ) : account.type === "WALLET" ? (
+                        <Wallet className="w-5 h-5" />
                       ) : (
-                        <Building2 className="h-6 w-6" />
+                        <Building2 className="w-5 h-5" />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-lg text-white group-hover:text-primary transition-colors">{account.name}</h3>
-                      <p className="text-xs text-muted-foreground">{account.institutionName || account.type.replace('_', ' ')} {account.last4 ? `• ${account.last4}` : ''}</p>
+                    <div className="overflow-hidden">
+                      <h3 className="font-bold text-lg text-white group-hover:text-primary transition-colors truncate" title={account.name}>{account.name}</h3>
+                      <p className="text-xs text-zinc-500 font-mono tracking-widest truncate">
+                        {account.institutionName || account.type.replace('_', ' ')} {account.last4 ? `• ${account.last4}` : ''}
+                      </p>
                     </div>
                   </div>
-                  {/* For now, just a placeholder for primary account if we ever want to set one */}
+                  {isCreditCard && (
+                    <Badge variant="outline" className="shrink-0 border-white/10 text-zinc-400 group-hover:border-primary/30 group-hover:text-primary group-hover:bg-primary/10 transition-colors">
+                      Dia {account.dueDay || "--"}
+                    </Badge>
+                  )}
                 </div>
                 
-                <div className="space-y-1 mb-6">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-                    {account.type === 'CREDIT_CARD' ? 'Fatura/Limite' : 'Saldo Disponível'}
-                  </span>
-                  <div
-                    className={`text-3xl font-bold tracking-tight text-white`}
+                <div className="space-y-2 relative z-10">
+                  {isCreditCard ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-400">Fatura Atual</span>
+                        <span className="font-bold">{formatCurrency(spent)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-500 text-xs">Limite Disp.</span>
+                        <span className="text-zinc-400 text-xs">{formatCurrency(availableLimit)}</span>
+                      </div>
+                      
+                      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
+                         <div 
+                           className="h-full rounded-full bg-zinc-600 group-hover:bg-primary transition-all duration-500"
+                           style={{ width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%` }}
+                         />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="pt-2">
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+                        Saldo Disponível
+                      </span>
+                      <div className="text-3xl font-bold tracking-tight text-white mt-1">
+                        {formatCurrency(balance)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-white/5 flex items-center justify-between relative z-10">
+                  <span className="text-xs text-zinc-500 font-medium">Conta</span>
+                  <Link 
+                    href={isCreditCard ? "/cards" : "#"} 
+                    className="text-sm font-semibold text-[#00FFFF] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 hover:text-white"
                   >
-                    {account.type === "CREDIT_CARD" && account.creditLimit 
-                      ? formatCurrency(Number(account.creditLimit)) 
-                      : "R$ 0,00"}
-                  </div>
+                      Detalhes
+                  </Link>
                 </div>
               </div>
-
-              <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                <span className="text-xs text-zinc-500 font-medium">{account.type.replace('_', ' ')}</span>
-                <button className="text-sm font-semibold text-[#00FFFF] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 hover:text-white">
-                    Detalhes
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

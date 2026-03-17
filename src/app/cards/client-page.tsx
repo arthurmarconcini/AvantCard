@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { CreditCard, Plus, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,36 @@ export function CardsClientPage({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(cards.length > 0 ? cards[0].id : null);
 
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const scrollAmount = window.innerWidth > 768 ? 600 : 300;
+      carouselRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!carouselRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - carouselRef.current.offsetLeft);
+    setScrollLeft(carouselRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => setIsDragging(false);
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !carouselRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - carouselRef.current.offsetLeft;
+    const walk = (x - startX) * 1.2; 
+    carouselRef.current.scrollLeft = scrollLeft - walk;
+  };
+
   const selectedCard = cards.find((c) => c.id === selectedCardId);
 
   const getInvoiceDateForTransaction = (t: Transaction, card: Card) => {
@@ -106,7 +136,7 @@ export function CardsClientPage({
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mt-2">
         <div>
           <h1 className="text-3xl font-extrabold text-white mb-2">Cartões de Crédito</h1>
           <p className="text-zinc-400">Gerencie seus limites, faturas e gastos parcelados.</p>
@@ -128,65 +158,93 @@ export function CardsClientPage({
         </div>
       ) : (
         <>
-          <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
-            {cards.map((card) => {
-              const spent = card.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
-              const limit = card.creditLimit ? Number(card.creditLimit) : 0;
-              const isSelected = selectedCardId === card.id;
+          <div className="relative group">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => scrollCarousel('left')} 
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 h-12 w-12 -translate-x-4 rounded-full border-white/10 bg-zinc-950/90 backdrop-blur-md text-white shadow-[0_0_30px_rgba(0,0,0,0.8)] opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 hover:bg-zinc-800 transition-all hidden md:flex"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </Button>
 
-              const availableLimit = Math.max(0, limit - spent);
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => scrollCarousel('right')} 
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 h-12 w-12 translate-x-4 rounded-full border-white/10 bg-zinc-950/90 backdrop-blur-md text-white shadow-[0_0_30px_rgba(0,0,0,0.8)] opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 hover:bg-zinc-800 transition-all hidden md:flex"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </Button>
 
-              return (
-                <div
-                  key={card.id}
-                  onClick={() => setSelectedCardId(card.id)}
-                  className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300 border backdrop-blur-xl ${
-                    isSelected
-                      ? "bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20"
-                      : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
-                  }`}
-                >
-                  {isSelected && (
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
-                  )}
+            <div 
+               ref={carouselRef}
+               onMouseDown={handleMouseDown}
+               onMouseLeave={handleMouseLeave}
+               onMouseUp={handleMouseUp}
+               onMouseMove={handleMouseMove}
+               className={`flex gap-4 overflow-x-auto pb-6 pt-2 custom-scrollbar select-none ${isDragging ? '' : 'snap-x snap-mandatory'}`}
+               style={{ cursor: isDragging ? 'grabbing' : 'grab', scrollBehavior: isDragging ? 'auto' : 'smooth' }}
+            >
+              {cards.map((card) => {
+                const spent = card.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
+                const limit = card.creditLimit ? Number(card.creditLimit) : 0;
+                const isSelected = selectedCardId === card.id;
 
-                  <div className="flex justify-between items-start mb-8 relative z-10">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-white/5 text-zinc-400'}`}>
-                        <CreditCard className="w-5 h-5" />
+                const availableLimit = Math.max(0, limit - spent);
+
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => setSelectedCardId(card.id)}
+                    className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300 border backdrop-blur-xl min-w-[85vw] md:min-w-[320px] shrink-0 snap-center flex flex-col justify-between ${
+                      isSelected
+                        ? "bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20"
+                        : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
+                    )}
+
+                    <div className="flex justify-between items-start mb-8 relative z-10 gap-2">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-white/5 text-zinc-400'}`}>
+                          <CreditCard className="w-5 h-5" />
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="font-bold text-lg truncate" title={card.name}>{card.name}</p>
+                          <p className="text-xs text-zinc-500 font-mono tracking-widest truncate">
+                            •••• {card.last4 || "0000"}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-lg">{card.name}</p>
-                        <p className="text-xs text-zinc-500 font-mono tracking-widest">
-                          •••• {card.last4 || "0000"}
-                        </p>
+                      <Badge variant="outline" className={`shrink-0 ${isSelected ? "border-primary/30 text-primary bg-primary/10" : "border-white/10 text-zinc-400"}`}>
+                        Dia {card.dueDay || "--"}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 relative z-10">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-400">Fatura Atual</span>
+                        <span className="font-bold">{formatCurrency(spent)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-500 text-xs">Limite Disp.</span>
+                        <span className="text-zinc-400 text-xs">{formatCurrency(availableLimit)}</span>
+                      </div>
+                      
+                      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
+                         <div 
+                           className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-primary' : 'bg-zinc-600'}`}
+                           style={{ width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%` }}
+                         />
                       </div>
                     </div>
-                    <Badge variant="outline" className={isSelected ? "border-primary/30 text-primary bg-primary/10" : "border-white/10 text-zinc-400"}>
-                      Dia {card.dueDay || "--"}
-                    </Badge>
                   </div>
-
-                  <div className="space-y-2 relative z-10">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-zinc-400">Fatura Atual</span>
-                      <span className="font-bold">{formatCurrency(spent)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-zinc-500 text-xs">Limite Disp.</span>
-                      <span className="text-zinc-400 text-xs">{formatCurrency(availableLimit)}</span>
-                    </div>
-                    
-                    <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
-                       <div 
-                         className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-primary' : 'bg-zinc-600'}`}
-                         style={{ width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%` }}
-                       />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {selectedCard && (

@@ -49,3 +49,16 @@ Este documento serve como a **Fonte da Verdade** para o estilo visual de todas a
 - Adicione efeitos de _hover_ suaves: aumentar brilho da cor primária, esmaecer borda ou leve elevação (quando fizer sentido no design dark).
 
 NUNCA crie uma página sem aplicar esses padrões estéticos detalhados. NUNCA use um design genérico e vazio.
+
+## 6. Padronização Estrita de Espaçamentos e Cards
+Para garantir coesão em listas e grids de todo o sistema:
+- **Grids e Gaps:** Sempre use `gap-4` ou `gap-6` em grids de cartões `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`.
+- **Anatomia do Card Base (Item de Lista):**
+  - **Container:** `bg-zinc-900/40 backdrop-blur-md border border-white/5 hover:border-white/20 hover:bg-zinc-900/60 rounded-3xl p-6 transition-all duration-300 group`
+  - **Layout Interno do Card:** 
+    - Flex column com `justify-between`.
+    - **Header:** Ícone em um container circular (`w-10 h-10 rounded-full flex items-center justify-center bg-white/5`), Título e Subtítulo.
+    - **Body:** Valores financeiros com alta hierarquia (`text-3xl font-bold tracking-tight text-white`). Identificadores (`text-[11px] font-semibold text-muted-foreground uppercase tracking-widest`).
+  - **Estado Selecionado/Ativo:** Quando um card é estritamente selecionado via estado, injete glow primário: `bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20`. Nunca use `bg-primary` em fundo de card completo.
+
+Aderência a essas regras de espaçamento e containerização é OBRIGATÓRIA.
