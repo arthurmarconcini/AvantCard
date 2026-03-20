@@ -5,6 +5,7 @@ import { CreditCard, Plus, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddPurchaseModal } from "@/components/add-purchase-modal";
+import { getInvoiceDateForTransaction } from "@/lib/billing";
 
 // Formatadores
 const formatCurrency = (valueInCents: number) => {
@@ -89,23 +90,6 @@ export function CardsClientPage({
 
   const selectedCard = cards.find((c) => c.id === selectedCardId);
 
-  const getInvoiceDateForTransaction = (t: Transaction, card: Card) => {
-    if (t.postingDate) return new Date(t.postingDate);
-
-    const tDate = new Date(t.transactionDate);
-    const closingDay = card.billingDay || (card.dueDay ? card.dueDay - 7 : 1);
-    const dueDay = card.dueDay || 1;
-    
-    let baseMonthOffset = 0;
-    if (tDate.getDate() >= closingDay) {
-      baseMonthOffset = 1;
-    }
-    if (dueDay < closingDay) {
-      baseMonthOffset += 1;
-    }
-    
-    return new Date(tDate.getFullYear(), tDate.getMonth() + baseMonthOffset, dueDay, 12, 0, 0);
-  };
 
   const [invoiceDate, setInvoiceDate] = useState(new Date());
   
