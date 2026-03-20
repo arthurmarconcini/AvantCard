@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { CreditCard, MoreVertical, Pencil, Trash2, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { DeleteAccountDialog } from "./delete-account-dialog";
+import { EditAccountModal } from "./edit-account-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,7 @@ interface CreditCardsListProps {
 
 export function CreditCardsList({ cards }: CreditCardsListProps) {
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const [editingCard, setEditingCard] = useState<CreditCardAccount | null>(null);
 
   if (cards.length === 0) return null;
 
@@ -44,6 +48,8 @@ export function CreditCardsList({ cards }: CreditCardsListProps) {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {
           const limitPercentage = Math.min(100, card.creditLimit > 0 ? (card.spent / card.creditLimit) * 100 : 0);
+          // Melhor dia de compra = dia seguinte ao fechamento
+          const bestPurchaseDay = card.billingDay ? (card.billingDay % 31) + 1 : null;
 
           return (
             <div
@@ -77,9 +83,18 @@ export function CreditCardsList({ cards }: CreditCardsListProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 bg-zinc-950 border-white/10">
-                      <DropdownMenuItem className="gap-2 cursor-pointer focus:bg-white/5">
+                      <DropdownMenuItem asChild className="gap-2 cursor-pointer focus:bg-white/5">
+                        <Link href={`/cards?cardId=${card.id}`}>
+                          <ExternalLink className="h-4 w-4" /> Ver Detalhes
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer focus:bg-white/5"
+                        onClick={() => setEditingCard(card)}
+                      >
                         <Pencil className="h-4 w-4" /> Editar Cartão
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-white/5" />
                       <DropdownMenuItem 
                         className="gap-2 text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer"
                         onClick={() => setDeletingAccountId(card.id)}
@@ -107,6 +122,12 @@ export function CreditCardsList({ cards }: CreditCardsListProps) {
                      style={{ width: `${limitPercentage}%` }}
                    />
                 </div>
+
+                {bestPurchaseDay && (
+                  <p className="text-[10px] text-zinc-600 tracking-wide mt-1">
+                    Melhor dia de compra: <span className="text-zinc-500 font-medium">dia {bestPurchaseDay}</span>
+                  </p>
+                )}
               </div>
             </div>
           );
@@ -119,6 +140,23 @@ export function CreditCardsList({ cards }: CreditCardsListProps) {
           onOpenChange={(open) => !open && setDeletingAccountId(null)}
           accountId={deletingAccountId}
           accountName={cards.find(c => c.id === deletingAccountId)?.name || "Conta"}
+        />
+      )}
+
+      {editingCard && (
+        <EditAccountModal
+          open={!!editingCard}
+          onOpenChange={(open) => !open && setEditingCard(null)}
+          account={{
+            id: editingCard.id,
+            name: editingCard.name,
+            type: "CREDIT_CARD",
+            institutionName: editingCard.institutionName,
+            last4: editingCard.last4,
+            creditLimit: editingCard.creditLimit,
+            billingDay: editingCard.billingDay,
+            dueDay: editingCard.dueDay,
+          }}
         />
       )}
     </div>

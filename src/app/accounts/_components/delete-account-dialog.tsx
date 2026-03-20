@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import {
   AlertDialog,
@@ -28,6 +29,7 @@ export function DeleteAccountDialog({
   accountId,
   accountName,
 }: DeleteAccountDialogProps) {
+  const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -38,6 +40,7 @@ export function DeleteAccountDialog({
       await deleteAccount(accountId);
       toast.success("Conta removida com sucesso");
       onOpenChange(false);
+      router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao remover conta");
     } finally {
@@ -47,31 +50,34 @@ export function DeleteAccountDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="bg-zinc-950 border-red-500/20 max-w-md">
+      <AlertDialogContent className="bg-zinc-950 border-red-500/20 max-w-md rounded-3xl shadow-[0_0_60px_rgba(239,68,68,0.08)]">
         <AlertDialogHeader>
-          <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-            <AlertTriangle className="w-6 h-6 text-red-500" />
+          <div className="mx-auto w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4 ring-4 ring-red-500/5 animate-pulse">
+            <AlertTriangle className="w-7 h-7 text-red-500" />
           </div>
-          <AlertDialogTitle className="text-center text-xl">
-            Remover {accountName}?
+          <AlertDialogTitle className="text-center text-xl font-extrabold text-white">
+            Remover &quot;{accountName}&quot;?
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-center text-zinc-400">
-            Esta ação é <strong className="text-red-500">irreversível</strong>. Todos os registros de faturas, limites, pagamentos e histórico vinculados a esta conta serão <strong>apagados permanentemente</strong>.
+          <AlertDialogDescription className="text-center text-zinc-400 leading-relaxed mt-2">
+            Esta ação é <strong className="text-red-400">permanente e irreversível</strong>.
           </AlertDialogDescription>
+          <div className="mt-4 p-3 rounded-xl bg-red-500/5 border border-red-500/10 text-xs text-zinc-500 leading-relaxed text-center">
+            Todos os <strong className="text-zinc-300">registros de transações, faturas, limites, pagamentos</strong> e histórico vinculados a esta conta serão apagados permanentemente.
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 mt-6">
-          <AlertDialogCancel className="mt-0 flex-1 bg-zinc-900 border-white/5 hover:bg-zinc-800 text-white">
+          <AlertDialogCancel className="mt-0 flex-1 bg-zinc-900 border-white/5 hover:bg-zinc-800 text-white rounded-xl h-11 font-medium">
             Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={isDeleting}
-            className="flex-1 bg-red-500 hover:bg-red-600 text-white border-transparent"
+            className="flex-1 bg-red-500 hover:bg-red-600 text-white border-transparent rounded-xl h-11 font-bold shadow-lg shadow-red-500/20"
           >
             {isDeleting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              "Sim, Excluir"
+              "Sim, Excluir Tudo"
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

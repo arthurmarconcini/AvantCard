@@ -65,6 +65,9 @@ model Account {
   billingDay  Int?     @map("billing_day")
   dueDay      Int?     @map("due_day")
 
+  // Saldo inicial (para contas bancárias e carteiras)
+  initialBalance Decimal? @map("initial_balance") @db.Decimal(12, 2)
+
   // Metadados
   institutionName String? @map("institution_name")
   last4           String?

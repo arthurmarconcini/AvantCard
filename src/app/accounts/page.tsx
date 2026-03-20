@@ -51,14 +51,17 @@ export default async function AccountsPage() {
   const totalCreditUsed = mappedCreditCards.reduce((acc, card) => acc + card.spent, 0);
 
   const mappedBankAccounts = bankAccounts.map(account => {
-    const balance = account.transactions.reduce((acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)), 0);
+    const transactionBalance = account.transactions.reduce((acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)), 0);
+    const initial = Number(account.initialBalance || 0);
+    const balance = initial + transactionBalance;
     
     return {
       id: account.id,
       name: account.name,
       type: account.type,
       institutionName: account.institutionName,
-      balance
+      balance,
+      initialBalance: initial,
     };
   });
 

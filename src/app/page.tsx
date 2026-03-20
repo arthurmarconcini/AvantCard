@@ -20,7 +20,13 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [accounts, openLoans, creditUsedByAccount, creditCards] = await Promise.all([
+  const [
+    accounts,
+    openLoans,
+    creditUsedByAccount,
+    creditCards,
+    cashTransactionsGrouped,
+  ] = await Promise.all([
     prisma.account.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -55,6 +61,14 @@ export default async function DashboardPage() {
         },
       },
     }),
+    prisma.transaction.groupBy({
+      by: ["direction"],
+      where: {
+        userId,
+        account: { type: { in: ["BANK_ACCOUNT", "CASH", "WALLET"] } },
+      },
+      _sum: { amount: true },
+    }),
   ]);
 
   const creditAccounts = accounts.filter((a) => a.type === "CREDIT_CARD");
@@ -77,6 +91,16 @@ export default async function DashboardPage() {
   );
 
   const availableCreditLimit = totalCreditLimit - totalUsedCredit;
+
+  const totalInitialBalance = cashAccounts.reduce(
+    (acc, accnt) => acc + (accnt.initialBalance ? Number(accnt.initialBalance) : 0),
+    0
+  );
+
+  const cashCredits = cashTransactionsGrouped.find(g => g.direction === "CREDIT")?._sum?.amount || 0;
+  const cashDebits = cashTransactionsGrouped.find(g => g.direction === "DEBIT")?._sum?.amount || 0;
+
+  const cashAndBankBalance = totalInitialBalance + Number(cashCredits) - Number(cashDebits);
 
   const cardInvoices = computeCurrentInvoices(creditCards);
 
@@ -108,7 +132,7 @@ export default async function DashboardPage() {
 
       <SummaryCards
         availableCreditLimit={availableCreditLimit}
-        cashAndBankBalance={0}
+        cashAndBankBalance={cashAndBankBalance}
         totalOpenBillsAmount={totalInvoicesAmount}
         totalLoanedAmount={totalLoanedAmount}
         creditAccountsCount={creditAccounts.length}

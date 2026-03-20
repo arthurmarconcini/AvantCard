@@ -4,14 +4,19 @@ import { authOptions } from "@/lib/auth";
 import { getCardsAndTransactions, getPersonsAndCategories } from "@/actions/cards";
 import { CardsClientPage } from "./client-page";
 
-export default async function CardsPage() {
+interface CardsPageProps {
+  searchParams: Promise<{ cardId?: string }>;
+}
+
+export default async function CardsPage({ searchParams }: CardsPageProps) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  // Busca os dados paralelamente na Server Action
+  const params = await searchParams;
+
   const [cards, { persons, categories }] = await Promise.all([
     getCardsAndTransactions(),
     getPersonsAndCategories(),
@@ -22,6 +27,7 @@ export default async function CardsPage() {
       cards={cards}
       persons={persons}
       categories={categories}
+      initialCardId={params.cardId}
     />
   );
 }

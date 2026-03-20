@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Building2, MoreVertical, Pencil, Trash2, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { DeleteAccountDialog } from "./delete-account-dialog";
+import { EditAccountModal } from "./edit-account-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ interface BankAccount {
   type: string;
   institutionName: string | null;
   balance: number;
+  initialBalance: number;
 }
 
 interface BankAccountsListProps {
@@ -26,6 +28,7 @@ interface BankAccountsListProps {
 
 export function BankAccountsList({ accounts }: BankAccountsListProps) {
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
 
   if (accounts.length === 0) return null;
 
@@ -67,7 +70,10 @@ export function BankAccountsList({ accounts }: BankAccountsListProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48 bg-zinc-950 border-white/10">
-                    <DropdownMenuItem className="gap-2 cursor-pointer focus:bg-white/5">
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer focus:bg-white/5"
+                      onClick={() => setEditingAccount(account)}
+                    >
                       <Pencil className="h-4 w-4" /> Editar Conta
                     </DropdownMenuItem>
                     <DropdownMenuItem 
@@ -99,6 +105,21 @@ export function BankAccountsList({ accounts }: BankAccountsListProps) {
           onOpenChange={(open) => !open && setDeletingAccountId(null)}
           accountId={deletingAccountId}
           accountName={accounts.find(a => a.id === deletingAccountId)?.name || "Conta"}
+        />
+      )}
+
+      {editingAccount && (
+        <EditAccountModal
+          open={!!editingAccount}
+          onOpenChange={(open) => !open && setEditingAccount(null)}
+          account={{
+            id: editingAccount.id,
+            name: editingAccount.name,
+            type: editingAccount.type,
+            institutionName: editingAccount.institutionName,
+            last4: null,
+            initialBalance: editingAccount.initialBalance,
+          }}
         />
       )}
     </div>

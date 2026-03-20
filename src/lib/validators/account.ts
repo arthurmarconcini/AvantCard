@@ -11,7 +11,6 @@ export const accountSchema = z
       .regex(/^\d*$/, "Apenas números.")
       .optional()
       .or(z.literal("")),
-    // For credit cards
     creditLimit: z
       .string()
       .regex(/^\d+$/, "Deve ser um valor numérico.")
@@ -27,6 +26,11 @@ export const accountSchema = z
       .optional()
       .transform((val) => (val === "" || val === undefined ? undefined : Number(val)))
       .pipe(z.number().int().min(1).max(31).optional()),
+    initialBalance: z
+      .string()
+      .regex(/^-?\d+$/, "Deve ser um valor numérico.")
+      .optional()
+      .or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     if (data.type === "CREDIT_CARD") {

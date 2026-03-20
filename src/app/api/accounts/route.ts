@@ -16,6 +16,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsedData = accountSchema.parse(body);
 
+    const isCreditCard = parsedData.type === "CREDIT_CARD";
+
     const account = await prisma.account.create({
       data: {
         userId: session.user.id,
@@ -24,11 +26,15 @@ export async function POST(req: Request) {
         institutionName: parsedData.institutionName || null,
         last4: parsedData.last4 || null,
         creditLimit:
-          parsedData.type === "CREDIT_CARD" && parsedData.creditLimit
-            ? Number(parsedData.creditLimit) // Converte para o Decimal (sempre centavos no payload cliente)
+          isCreditCard && parsedData.creditLimit
+            ? Number(parsedData.creditLimit)
             : null,
-        billingDay: parsedData.type === "CREDIT_CARD" ? parsedData.billingDay : null,
-        dueDay: parsedData.type === "CREDIT_CARD" ? parsedData.dueDay : null,
+        billingDay: isCreditCard ? parsedData.billingDay : null,
+        dueDay: isCreditCard ? parsedData.dueDay : null,
+        initialBalance:
+          !isCreditCard && parsedData.initialBalance
+            ? Number(parsedData.initialBalance)
+            : null,
       },
     });
 

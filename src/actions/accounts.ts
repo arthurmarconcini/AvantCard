@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { accountSchema } from "@/lib/validators/account";
 
 export async function deleteAccount(accountId: string) {
   const session = await getServerSession(authOptions);
@@ -14,28 +15,72 @@ export async function deleteAccount(accountId: string) {
 
   const userId = session.user.id;
 
-  // Verifica se a conta existe e pertence ao usuário autenticado
   const account = await prisma.account.findUnique({
-    where: {
-      id: accountId,
-      userId,
-    },
+    where: { id: accountId, userId },
+    include: { transactions: { select: { id: true } }, loansOriginated: { select: { id: true } } },
   });
 
   if (!account) {
     throw new Error("Conta não encontrada ou não pertence a este usuário.");
   }
 
-  // Deleta a conta.
-  // O Prisma Schema deve ter onDelete: Cascade para transações vinculadas.
-  await prisma.account.delete({
-    where: {
-      id: accountId,
+  // Transações usam onDelete: Restrict, então precisamos removê-las manualmente
+  await prisma.$transaction(async (tx) => {
+    if (account.transactions.length > 0) {
+      await tx.transaction.deleteMany({ where: { accountId } });
+    }
+    if (account.loansOriginated.length > 0) {
+      for (const loan of account.loansOriginated) {
+        await tx.loanSchedule.deleteMany({ where: { loanId: loan.id } });
+      }
+      await tx.loan.deleteMany({ where: { originAccountId: accountId } });
+    }
+    await tx.account.delete({ where: { id: accountId } });
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath("/");
+
+  return { success: true };
+}
+
+export async function updateAccount(accountId: string, rawData: unknown) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    throw new Error("Não autorizado");
+  }
+
+  const userId = session.user.id;
+
+  const account = await prisma.account.findUnique({
+    where: { id: accountId, userId },
+  });
+
+  if (!account) {
+    throw new Error("Conta não encontrada ou não pertence a este usuário.");
+  }
+
+  const parsed = accountSchema.parse(rawData);
+
+  const isCreditCard = parsed.type === "CREDIT_CARD";
+
+  await prisma.account.update({
+    where: { id: accountId },
+    data: {
+      name: parsed.name,
+      type: parsed.type,
+      institutionName: parsed.institutionName || null,
+      last4: parsed.last4 || null,
+      creditLimit: isCreditCard && parsed.creditLimit ? Number(parsed.creditLimit) : null,
+      billingDay: isCreditCard ? parsed.billingDay : null,
+      dueDay: isCreditCard ? parsed.dueDay : null,
+      initialBalance: !isCreditCard && parsed.initialBalance ? Number(parsed.initialBalance) : null,
     },
   });
 
   revalidatePath("/accounts");
-  revalidatePath("/"); // Update dashboard metrics too
+  revalidatePath("/");
 
   return { success: true };
 }

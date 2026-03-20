@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { CreditCard, Plus, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { CreditCard, ShoppingCart, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddPurchaseModal } from "@/components/add-purchase-modal";
@@ -50,13 +50,16 @@ export function CardsClientPage({
   cards,
   persons,
   categories,
+  initialCardId,
 }: {
   cards: Card[];
   persons: { id: string; name: string }[];
   categories: { id: string; name: string }[];
+  initialCardId?: string;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCardId, setSelectedCardId] = useState(cards.length > 0 ? cards[0].id : null);
+  const resolvedInitialCard = initialCardId && cards.some(c => c.id === initialCardId) ? initialCardId : (cards.length > 0 ? cards[0].id : null);
+  const [selectedCardId, setSelectedCardId] = useState(resolvedInitialCard);
 
   const carouselRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -127,9 +130,9 @@ export function CardsClientPage({
         </div>
         <Button
           onClick={() => setIsModalOpen(true)}
-          className="bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl font-bold h-11 px-6 shadow-[0_0_20px_rgba(57,255,20,0.2)] transition-shadow hover:shadow-[0_0_30px_rgba(57,255,20,0.4)]"
+          className="bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl font-bold h-11 px-7 shadow-[0_0_25px_rgba(57,255,20,0.25)] transition-all duration-300 hover:shadow-[0_0_40px_rgba(57,255,20,0.45)] hover:scale-[1.03] active:scale-[0.98] group/btn"
         >
-          <Plus className="w-5 h-5 mr-2" />
+          <ShoppingCart className="w-5 h-5 mr-2 transition-transform duration-300 group-hover/btn:-translate-y-px" />
           Nova Compra
         </Button>
       </div>
