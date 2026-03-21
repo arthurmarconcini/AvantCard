@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Home,
   LogOut,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Minhas Contas", href: "/accounts", icon: Wallet },
   { name: "Cartões", href: "/cards", icon: CreditCard },
+  { name: "Pessoas", href: "/people", icon: Users },
   { name: "Relatórios", href: "/reports", icon: PieChart },
 ];
 
