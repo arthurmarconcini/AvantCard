@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Edit2, Trash2, Eye, CreditCard, Banknote, Search } from "lucide-react";
+import { Users, Plus, Edit2, Trash2, Eye, CreditCard, Banknote, Search, Coins } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/format";
+import { useRouter } from "next/navigation";
 import { AddPersonModal } from "./add-person-modal";
 import { DeletePersonModal } from "./delete-person-modal";
 import { PersonDetailsModal } from "./person-details-modal";
@@ -31,6 +32,13 @@ interface Person {
   loanedLimit: number;
   loanedMoney: number;
   transactions: Transaction[];
+  loans: {
+    id: string;
+    principalAmount: number;
+    startDate: Date;
+    status: string;
+    schedules: { id: string; dueDate: Date; totalDue: number; status: string; }[];
+  }[];
 }
 
 interface PeopleClientPageProps {
@@ -44,6 +52,7 @@ const mapRelationshipToLabel = {
 };
 
 export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
@@ -179,14 +188,24 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
                 </div>
               </div>
 
-              <Button 
-                variant="outline" 
-                className="w-full bg-transparent border-white/10 text-white hover:bg-white/5"
-                onClick={() => handleView(person)}
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                Ver Detalhes
-              </Button>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Button 
+                  variant="outline" 
+                  className="bg-transparent border-white/10 text-white hover:bg-white/5"
+                  onClick={() => handleView(person)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Detalhes
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="bg-primary/10 border-primary/20 text-primary hover:bg-primary hover:text-zinc-950 font-bold"
+                  onClick={() => router.push(`/loans?newLoanPersonId=${person.id}`)}
+                >
+                  <Coins className="h-4 w-4 mr-2" />
+                  Emprestar
+                </Button>
+              </div>
             </div>
           ))
         )}

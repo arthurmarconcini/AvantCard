@@ -23,6 +23,11 @@ export async function getPeopleDashboard() {
           category: true,
         },
         orderBy: { transactionDate: "desc" }
+      },
+      loans: {
+        include: {
+          schedules: true
+        }
       }
     },
     orderBy: { name: "asc" }
@@ -33,6 +38,8 @@ export async function getPeopleDashboard() {
     let loanedMoney = 0;
 
     person.transactions.forEach(t => {
+      if (t.type === "INTEREST") return;
+
       const amount = Number(t.amount);
       if (t.account.type === "CREDIT_CARD") {
         if (t.direction === "DEBIT") loanedLimit += amount;
@@ -49,7 +56,23 @@ export async function getPeopleDashboard() {
       loanedMoney,
       transactions: person.transactions.map(t => ({
         ...t,
-        amount: Number(t.amount)
+        amount: Number(t.amount),
+        account: {
+          ...t.account,
+          creditLimit: t.account.creditLimit ? Number(t.account.creditLimit) : null,
+          initialBalance: t.account.initialBalance ? Number(t.account.initialBalance) : null,
+        }
+      })),
+      loans: person.loans.map(l => ({
+        ...l,
+        principalAmount: Number(l.principalAmount),
+        interestRate: l.interestRate ? Number(l.interestRate) : 0,
+        schedules: l.schedules.map(s => ({
+          ...s,
+          principalDue: Number(s.principalDue),
+          interestDue: Number(s.interestDue),
+          totalDue: Number(s.totalDue),
+        }))
       }))
     };
   });
@@ -106,6 +129,24 @@ export async function deletePerson(id: string) {
   
   if (!session?.user?.id) {
     throw new Error("Não autorizado");
+  }
+
+  const person = await prisma.person.findUnique({
+    where: { id, userId: session.user.id },
+    include: {
+      _count: {
+        select: { transactions: true, loans: true }
+      }
+    }
+  });
+
+  if (!person) throw new Error("Pessoa não encontrada");
+
+  if (person._count.transactions > 0 || person._count.loans > 0) {
+    return { 
+      success: false, 
+      error: "Não é possível excluir uma pessoa que possui transações financeiras ou empréstimos associados." 
+    };
   }
 
   await prisma.person.delete({

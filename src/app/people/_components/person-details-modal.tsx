@@ -35,6 +35,18 @@ interface PersonDetailsModalProps {
     loanedLimit: number;
     loanedMoney: number;
     transactions: Transaction[];
+    loans: {
+      id: string;
+      principalAmount: number;
+      startDate: Date;
+      status: string;
+      schedules: {
+        id: string;
+        dueDate: Date;
+        totalDue: number;
+        status: string;
+      }[];
+    }[];
   } | null;
 }
 
@@ -88,6 +100,30 @@ export function PersonDetailsModal({ open, onOpenChange, person }: PersonDetails
             </div>
           </div>
           
+          {person.loans && person.loans.some(l => l.status === "OPEN") && (
+            <div className="mb-4">
+              <h3 className="font-semibold tracking-tight text-white mb-2">Empréstimos Ativos</h3>
+              <div className="space-y-2">
+                {person.loans.filter(l => l.status === "OPEN").map(loan => {
+                  const paid = loan.schedules.filter(s => s.status === "PAID").length;
+                  const total = loan.schedules.length;
+                  const totalExpected = loan.schedules.reduce((acc, s) => acc + s.totalDue, 0);
+                  return (
+                    <div key={loan.id} className="bg-zinc-900/50 p-3 rounded-lg border border-white/5 flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Principal: {formatCurrency(loan.principalAmount)}</p>
+                        <p className="text-xs text-zinc-500">Total a receber: {formatCurrency(totalExpected)}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs border-primary/20 text-primary bg-primary/10">
+                        {paid}/{total} Parcelas
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between items-center mt-2">
             <h3 className="font-semibold tracking-tight text-white">Transações</h3>
             <Select value={filterPeriod} onValueChange={(val: "7" | "30" | "All") => setFilterPeriod(val)}>

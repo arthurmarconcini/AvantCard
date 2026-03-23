@@ -12,6 +12,7 @@ import {
   Home,
   LogOut,
   Users,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Minhas Contas", href: "/accounts", icon: Wallet },
   { name: "Cartões", href: "/cards", icon: CreditCard },
   { name: "Pessoas", href: "/people", icon: Users },
+  { name: "Empréstimos", href: "/loans", icon: Coins },
   { name: "Relatórios", href: "/reports", icon: PieChart },
 ];
 

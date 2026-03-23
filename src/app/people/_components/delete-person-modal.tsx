@@ -27,7 +27,16 @@ export function DeletePersonModal({ open, onOpenChange, person }: DeletePersonMo
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
-      await deletePerson(person.id);
+      const res = await deletePerson(person.id);
+      
+      if (res && !res.success && res.error) {
+        toast.error("Ação Bloqueada", {
+          description: res.error,
+          className: "bg-red-950 border-red-900 text-red-200",
+        });
+        setTimeout(() => onOpenChange(false), 300);
+        return;
+      }
       
       toast.success("Pessoa excluída", {
         description: `${person.name} foi removido(a) com sucesso.`,
@@ -35,9 +44,9 @@ export function DeletePersonModal({ open, onOpenChange, person }: DeletePersonMo
       });
       
       onOpenChange(false);
-    } catch (error) {
-      toast.error("Erro ao excluir", {
-        description: "Não foi possível excluir os dados. Tente novamente.",
+    } catch {
+      toast.error("Erro no Servidor", {
+        description: "Ocorreu um erro interno ao tentar excluir os dados.",
         className: "bg-red-950 border-red-900 text-red-200",
       });
     } finally {
