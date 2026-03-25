@@ -97,12 +97,13 @@ export async function createLoan(data: {
   interestRate?: number;
   installments: number;
   startDate: Date;
+  paymentDay?: number;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new Error("Não autorizado");
   const userId = session.user.id;
 
-  const { personId, originAccountId, interestRate = 0, installments, startDate } = data;
+  const { personId, originAccountId, interestRate = 0, installments, startDate, paymentDay } = data;
   const principalAmount = Math.round(data.principalAmount * 100);
 
   // 1. Criar a transação de saída (LOAN_DISBURSEMENT)
@@ -119,9 +120,7 @@ export async function createLoan(data: {
     }
   });
 
-  // 2. Calcular parcelas (Price simplificada ou Juros Simples)
-  // Vamos usar Juros Simples ao mês sobre o saldo inicial para manter a UI simples de entender.
-  // Valor total = Principal + (Principal * (interestRate/100) * installments)
+  // 2. Calcular parcelas (Juros Simples ao mês sobre o saldo inicial)
   const totalInterest = Math.round(principalAmount * (interestRate / 100) * installments);
   
   const installmentPrincipal = Math.floor(principalAmount / installments);
@@ -129,9 +128,10 @@ export async function createLoan(data: {
 
   const schedulesData = [];
   const start = new Date(startDate);
+  const day = paymentDay ?? start.getDate();
 
   for (let i = 1; i <= installments; i++) {
-    const dueDate = new Date(start.getFullYear(), start.getMonth() + i, start.getDate());
+    const dueDate = new Date(start.getFullYear(), start.getMonth() + i, day);
     
     // Ajuste da última parcela para compensar arredondamentos
     const isLast = i === installments;

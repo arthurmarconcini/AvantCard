@@ -19,6 +19,7 @@ const formSchema = z.object({
   interestRate: z.coerce.number().min(0, "A taxa não pode ser negativa").optional(),
   installments: z.coerce.number().min(1, "Mínimo de 1 parcela").max(72, "Máximo de 72 parcelas"),
   startDate: z.string().min(10, "Data inválida"),
+  paymentDay: z.coerce.number().min(1, "Mín. 1").max(31, "Máx. 31").optional().or(z.literal("")),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -43,6 +44,7 @@ export function CreateLoanModal({ open, onOpenChange, people, accounts, preSelec
       interestRate: 0,
       installments: 1,
       startDate: new Date().toISOString().split('T')[0],
+      paymentDay: "" as unknown as number,
     },
   });
 
@@ -65,6 +67,8 @@ export function CreateLoanModal({ open, onOpenChange, people, accounts, preSelec
         return;
       }
 
+      const paymentDay = typeof data.paymentDay === "number" && data.paymentDay >= 1 ? data.paymentDay : undefined;
+
       await createLoan({
         personId: data.personId,
         originAccountId: data.originAccountId,
@@ -72,6 +76,7 @@ export function CreateLoanModal({ open, onOpenChange, people, accounts, preSelec
         interestRate: data.interestRate || 0,
         installments: data.installments,
         startDate: new Date(data.startDate + "T12:00:00Z"),
+        paymentDay,
       });
 
       toast.success("Empréstimo registrado", {
@@ -119,7 +124,7 @@ export function CreateLoanModal({ open, onOpenChange, people, accounts, preSelec
                     onValueChange={field.onChange}
                     disabled={people.length === 0}
                   >
-                    <SelectTrigger className="w-full h-11 bg-black/20 border-white/5 text-white focus:ring-primary focus:border-primary/50 transition-all rounded-xl relative px-3 py-2 flex justify-between items-center text-left data-placeholder:text-zinc-600">
+                    <SelectTrigger className="w-full h-11 bg-black/20 border-white/5 text-white focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl px-3 py-2 data-placeholder:text-zinc-600">
                       <SelectValue placeholder={people.length === 0 ? "Cadastre uma pessoa primeiro" : "Selecione a pessoa"} />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-white/10 rounded-xl">
@@ -146,7 +151,7 @@ export function CreateLoanModal({ open, onOpenChange, people, accounts, preSelec
                     onValueChange={field.onChange}
                     disabled={accounts.length === 0}
                   >
-                    <SelectTrigger className="w-full h-11 bg-black/20 border-white/5 text-white focus:ring-primary focus:border-primary/50 transition-all rounded-xl relative px-3 py-2 flex justify-between items-center text-left data-placeholder:text-zinc-600">
+                    <SelectTrigger className="w-full h-11 bg-black/20 border-white/5 text-white focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl px-3 py-2 data-placeholder:text-zinc-600">
                       <SelectValue placeholder={accounts.length === 0 ? "Cadastre uma conta" : "Selecione a conta"} />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-white/10 rounded-xl">
@@ -230,6 +235,20 @@ export function CreateLoanModal({ open, onOpenChange, people, accounts, preSelec
                 />
                 {errors.startDate && <p className="text-red-500 text-xs">{errors.startDate.message}</p>}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentDay" className="text-zinc-300 font-medium">Dia do Vencimento <span className="text-zinc-500 font-normal">(opcional)</span></Label>
+              <Input 
+                id="paymentDay" 
+                type="number" 
+                min={1}
+                max={31}
+                placeholder="Mesmo dia do início" 
+                className="h-11 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                {...register("paymentDay")} 
+              />
+              {errors.paymentDay && <p className="text-red-500 text-xs">{errors.paymentDay.message}</p>}
             </div>
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-white/5 mt-6">

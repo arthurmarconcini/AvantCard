@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { AuthLayoutWrapper } from "@/components/layout/auth-layout-wrapper";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -38,6 +39,7 @@ export default function RootLayout({
             <AuthLayoutWrapper>
               {children}
             </AuthLayoutWrapper>
+            <Toaster position="bottom-right" richColors />
           </QueryProvider>
         </SessionProvider>
       </body>
