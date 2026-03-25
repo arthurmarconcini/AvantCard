@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, MoreVertical, Pencil, Trash2, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Building2, MoreVertical, Pencil, Trash2, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { DeleteAccountDialog } from "./delete-account-dialog";
 import { EditAccountModal } from "./edit-account-modal";
+import { AccountTransactionModal } from "./account-transaction-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,8 @@ interface BankAccountsListProps {
 export function BankAccountsList({ accounts }: BankAccountsListProps) {
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
+  const [transactionAccount, setTransactionAccount] = useState<{ id: string; name: string } | null>(null);
+  const [transactionMode, setTransactionMode] = useState<"deposit" | "withdraw">("deposit");
 
   if (accounts.length === 0) return null;
 
@@ -70,6 +74,19 @@ export function BankAccountsList({ accounts }: BankAccountsListProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48 bg-zinc-950 border-white/10">
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer focus:bg-white/5"
+                      onClick={() => { setTransactionAccount({ id: account.id, name: account.name }); setTransactionMode("deposit"); }}
+                    >
+                      <ArrowDownCircle className="h-4 w-4 text-emerald-400" /> Depositar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer focus:bg-white/5"
+                      onClick={() => { setTransactionAccount({ id: account.id, name: account.name }); setTransactionMode("withdraw"); }}
+                    >
+                      <ArrowUpCircle className="h-4 w-4 text-amber-400" /> Sacar
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/5" />
                     <DropdownMenuItem
                       className="gap-2 cursor-pointer focus:bg-white/5"
                       onClick={() => setEditingAccount(account)}
@@ -120,6 +137,15 @@ export function BankAccountsList({ accounts }: BankAccountsListProps) {
             last4: null,
             initialBalance: editingAccount.initialBalance,
           }}
+        />
+      )}
+
+      {transactionAccount && (
+        <AccountTransactionModal
+          open={!!transactionAccount}
+          onOpenChange={(open) => !open && setTransactionAccount(null)}
+          account={transactionAccount}
+          initialMode={transactionMode}
         />
       )}
     </div>

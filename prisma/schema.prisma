@@ -134,6 +134,8 @@ enum TransactionType {
   LOAN_REPAYMENT
   FEE
   INTEREST
+  DEPOSIT
+  WITHDRAWAL
 }
 
 enum TransactionDirection {

@@ -84,3 +84,87 @@ export async function updateAccount(accountId: string, rawData: unknown) {
 
   return { success: true };
 }
+
+export async function depositToAccount(data: {
+  accountId: string;
+  amount: number;
+  description?: string;
+  date?: Date;
+}) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Não autorizado");
+
+  const account = await prisma.account.findUnique({
+    where: { id: data.accountId, userId: session.user.id },
+  });
+
+  if (!account) throw new Error("Conta não encontrada.");
+  if (account.type === "CREDIT_CARD") throw new Error("Depósitos não se aplicam a cartões de crédito.");
+
+  await prisma.transaction.create({
+    data: {
+      userId: session.user.id,
+      accountId: data.accountId,
+      type: "DEPOSIT",
+      direction: "CREDIT",
+      amount: Math.round(data.amount * 100),
+      description: data.description || "Depósito manual",
+      transactionDate: data.date ?? new Date(),
+    },
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath("/");
+
+  return { success: true };
+}
+
+export async function withdrawFromAccount(data: {
+  accountId: string;
+  amount: number;
+  description?: string;
+  date?: Date;
+}) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Não autorizado");
+
+  const account = await prisma.account.findUnique({
+    where: { id: data.accountId, userId: session.user.id },
+    include: { transactions: { select: { amount: true, direction: true } } },
+  });
+
+  if (!account) throw new Error("Conta não encontrada.");
+  if (account.type === "CREDIT_CARD") throw new Error("Saques não se aplicam a cartões de crédito.");
+
+  const initial = Number(account.initialBalance || 0);
+  const transactionBalance = account.transactions.reduce(
+    (acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)),
+    0,
+  );
+  const currentBalance = initial + transactionBalance;
+  const withdrawalCents = Math.round(data.amount * 100);
+
+  if (withdrawalCents > currentBalance) {
+    return {
+      success: false,
+      error: `Saldo insuficiente. Disponível: R$ ${(currentBalance / 100).toFixed(2).replace(".", ",")}`,
+    };
+  }
+
+  await prisma.transaction.create({
+    data: {
+      userId: session.user.id,
+      accountId: data.accountId,
+      type: "WITHDRAWAL",
+      direction: "DEBIT",
+      amount: Math.round(data.amount * 100),
+      description: data.description || "Saque manual",
+      transactionDate: data.date ?? new Date(),
+    },
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath("/");
+
+  return { success: true };
+}
