@@ -45,7 +45,7 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex w-64 flex-col bg-card border-r border-border min-h-screen sticky top-0">
       {/* Brand & Logo Area */}
-      <div className="flex items-center h-16 shrink-0 px-6 border-b border-border/50">
+      <div className="flex items-center h-16 shrink-0 px-6 border-b border-border">
         <div className="flex items-center gap-2">
           {/* Logo Icon (Using primary Neon Green) */}
           <div className="bg-primary/10 p-2 rounded-lg">
