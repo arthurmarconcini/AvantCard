@@ -20,15 +20,20 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
+  const now = new Date();
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
   const [
     accounts,
     openLoans,
     creditUsedByAccount,
     creditCards,
     cashTransactionsGrouped,
+    monthlyTransactions,
   ] = await Promise.all([
     prisma.account.findMany({
       where: { userId },
+      include: { transactions: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.loan.findMany({
@@ -68,6 +73,17 @@ export default async function DashboardPage() {
         account: { type: { in: ["BANK_ACCOUNT", "CASH", "WALLET"] } },
       },
       _sum: { amount: true },
+    }),
+    prisma.transaction.findMany({
+      where: {
+        userId,
+        transactionDate: { gte: sixMonthsAgo },
+      },
+      select: {
+        amount: true,
+        direction: true,
+        transactionDate: true,
+      },
     }),
   ]);
 
@@ -114,8 +130,58 @@ export default async function DashboardPage() {
     0,
   );
 
-  const isChartEmpty =
-    cardInvoices.length === 0 && totalLoanedAmount === 0 && accounts.length === 0;
+  // Gráfico de fluxo de caixa — agrupar transações por mês
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const monthlyMap = new Map<string, { revenue: number; expenses: number }>();
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    monthlyMap.set(key, { revenue: 0, expenses: 0 });
+  }
+
+  for (const t of monthlyTransactions) {
+    const d = new Date(t.transactionDate);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const entry = monthlyMap.get(key);
+    if (entry) {
+      if (t.direction === "CREDIT") {
+        entry.revenue += Number(t.amount);
+      } else {
+        entry.expenses += Number(t.amount);
+      }
+    }
+  }
+
+  const monthlyData = Array.from(monthlyMap.entries()).map(([key, data]) => {
+    const [, month] = key.split("-").map(Number);
+    return {
+      month: monthNames[month],
+      revenue: data.revenue,
+      expenses: data.expenses,
+    };
+  });
+
+  // Contas registradas — com saldo real
+  const accountsDisplay = accounts.map((account) => {
+    const txBalance = account.transactions.reduce(
+      (acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)),
+      0,
+    );
+    const initial = Number(account.initialBalance || 0);
+    const creditLimit = account.creditLimit ? Number(account.creditLimit) : 0;
+
+    const balance = account.type === "CREDIT_CARD"
+      ? creditLimit - txBalance
+      : initial + txBalance;
+
+    return {
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      balance,
+    };
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -143,13 +209,13 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-8">
-          <CashFlowChart isEmpty={isChartEmpty} />
+          <CashFlowChart monthlyData={monthlyData} />
           <PendingBillsList invoices={cardInvoices} />
         </div>
 
         <div className="xl:col-span-1 space-y-8">
           <UpcomingPayments loans={openLoans} />
-          <RegisteredAccounts accounts={accounts} />
+          <RegisteredAccounts accounts={accountsDisplay} />
           {accounts.length > 0 && <FinancialTip />}
         </div>
       </div>

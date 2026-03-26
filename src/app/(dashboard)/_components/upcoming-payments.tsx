@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency } from "@/lib/format";
 
@@ -68,9 +68,12 @@ export function UpcomingPayments({ loans }: UpcomingPaymentsProps) {
         </div>
       )}
 
-      <Button variant="secondary" className="w-full mt-6 font-semibold bg-secondary/40 hover:bg-secondary/60 text-foreground border border-border/40 rounded-xl">
+      <Link
+        href="/loans"
+        className="flex items-center justify-center w-full mt-6 h-10 font-semibold bg-secondary/40 hover:bg-secondary/60 text-foreground border border-border/40 rounded-xl text-sm transition-colors"
+      >
         Gerenciar Empréstimos P2P
-      </Button>
+      </Link>
     </div>
   );
 }

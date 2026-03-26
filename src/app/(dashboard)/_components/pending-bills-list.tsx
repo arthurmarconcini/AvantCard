@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatCurrency, getDaysUntilDue } from "@/lib/format";
 import type { CardInvoice } from "@/lib/billing";
 
@@ -14,9 +14,9 @@ export function PendingBillsList({ invoices }: PendingBillsListProps) {
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-semibold text-lg">Faturas dos Cartões</h3>
         {invoices.length > 0 && (
-          <button className="text-sm text-primary font-medium hover:underline transition-colors focus-visible:ring-primary focus-visible:outline-none rounded">
+          <Link href="/cards" className="text-sm text-primary font-medium hover:underline transition-colors focus-visible:ring-primary focus-visible:outline-none rounded">
             Ver Tudo
-          </button>
+          </Link>
         )}
       </div>
 
@@ -29,10 +29,13 @@ function EmptyState() {
   return (
     <div className="flex items-center justify-center p-8 rounded-2xl bg-background/30 border border-dashed border-border/50">
       <div className="text-center">
-        <p className="text-sm text-muted-foreground mb-4">Nenhuma fatura de cartão no mês atual.</p>
-        <Button variant="outline" className="rounded-xl border-dashed border-border/60 text-muted-foreground hover:text-white transition-colors">
-          Ir para Cartões
-        </Button>
+         <p className="text-sm text-muted-foreground mb-4">Nenhuma fatura de cartão no mês atual.</p>
+         <Link
+           href="/cards"
+           className="inline-flex items-center justify-center h-10 px-4 rounded-xl border border-dashed border-border/60 text-muted-foreground text-sm font-medium hover:text-white hover:border-white/20 transition-colors"
+         >
+           Ir para Cartões
+         </Link>
       </div>
     </div>
   );
