@@ -39,6 +39,7 @@ export async function deleteAccount(accountId: string) {
   });
 
   revalidatePath("/accounts");
+  revalidatePath("/cards");
   revalidatePath("/");
 
   return { success: true };
@@ -80,6 +81,7 @@ export async function updateAccount(accountId: string, rawData: unknown) {
   });
 
   revalidatePath("/accounts");
+  revalidatePath("/cards");
   revalidatePath("/");
 
   return { success: true };

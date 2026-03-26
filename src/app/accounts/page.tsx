@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { AddAccountModal } from "@/components/add-account-modal";
 import { AccountsSummary } from "./_components/accounts-summary";
-import { CreditCardsList } from "./_components/credit-cards-list";
 import { BankAccountsList } from "./_components/bank-accounts-list";
+import { AccountHistory } from "./_components/account-history";
 import { Wallet } from "lucide-react";
 
 export default async function AccountsPage() {
@@ -17,44 +17,36 @@ export default async function AccountsPage() {
 
   const userId = session.user.id;
 
-  const accounts = await prisma.account.findMany({
-    where: { userId },
-    include: {
-      transactions: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [accounts, openLoans, historyTransactions] = await Promise.all([
+    prisma.account.findMany({
+      where: { userId, type: { in: ["BANK_ACCOUNT", "WALLET", "CASH", "OTHER"] } },
+      include: { transactions: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.loan.findMany({
+      where: { userId, status: "OPEN" },
+      select: { principalAmount: true },
+    }),
+    prisma.transaction.findMany({
+      where: {
+        userId,
+        type: { in: ["DEPOSIT", "WITHDRAWAL", "LOAN_DISBURSEMENT", "LOAN_REPAYMENT"] },
+        account: { type: { in: ["BANK_ACCOUNT", "WALLET", "CASH", "OTHER"] } },
+      },
+      include: { account: { select: { name: true } } },
+      orderBy: { transactionDate: "desc" },
+      take: 100,
+    }),
+  ]);
 
-  const creditCards = accounts.filter((a) => a.type === "CREDIT_CARD");
-  const bankAccounts = accounts.filter((a) => a.type === "BANK_ACCOUNT" || a.type === "WALLET");
-
-  const totalCreditLimit = creditCards.reduce((acc, card) => acc + Number(card.creditLimit || 0), 0);
-  
-  const mappedCreditCards = creditCards.map(card => {
-    const limit = Number(card.creditLimit || 0);
-    const spent = card.transactions.reduce((acc, t) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)), 0);
-    const availableLimit = Math.max(0, limit - spent);
-    
-    return {
-      id: card.id,
-      name: card.name,
-      institutionName: card.institutionName,
-      last4: card.last4,
-      dueDay: card.dueDay,
-      billingDay: card.billingDay,
-      creditLimit: limit,
-      spent,
-      availableLimit
-    };
-  });
-
-  const totalCreditUsed = mappedCreditCards.reduce((acc, card) => acc + card.spent, 0);
-
-  const mappedBankAccounts = bankAccounts.map(account => {
-    const transactionBalance = account.transactions.reduce((acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)), 0);
+  const mappedBankAccounts = accounts.map((account) => {
+    const transactionBalance = account.transactions.reduce(
+      (acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)),
+      0,
+    );
     const initial = Number(account.initialBalance || 0);
     const balance = initial + transactionBalance;
-    
+
     return {
       id: account.id,
       name: account.name,
@@ -64,6 +56,23 @@ export default async function AccountsPage() {
       initialBalance: initial,
     };
   });
+
+  const totalBalance = mappedBankAccounts.reduce((acc, a) => acc + a.balance, 0);
+  const loanedBalance = openLoans.reduce((acc, l) => acc + Number(l.principalAmount), 0);
+  const netWorth = totalBalance - loanedBalance;
+
+  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }));
+
+  const mappedHistory = historyTransactions.map((t) => ({
+    id: t.id,
+    type: t.type,
+    direction: t.direction,
+    amount: Number(t.amount),
+    description: t.description,
+    transactionDate: t.transactionDate.toISOString(),
+    accountId: t.accountId,
+    accountName: t.account.name,
+  }));
 
   return (
     <div className="relative min-h-[calc(100vh-80px)] p-6 md:p-8 space-y-8 overflow-hidden max-w-7xl mx-auto">
@@ -75,29 +84,29 @@ export default async function AccountsPage() {
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">Minhas <span className="text-primary">Contas</span></h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            Gerencie seus saldos, cartões de crédito e contas bancárias.
+            Gerencie seus saldos, contas bancárias e carteiras.
           </p>
         </div>
         <AddAccountModal />
       </div>
 
-      <AccountsSummary 
-        totalCreditLimit={totalCreditLimit}
-        totalCreditUsed={totalCreditUsed}
-        creditCardsCount={creditCards.length}
-        bankAccountsCount={bankAccounts.length}
+      <AccountsSummary
+        totalBalance={totalBalance}
+        loanedBalance={loanedBalance}
+        accountsCount={accounts.length}
+        netWorth={netWorth}
       />
 
       {accounts.length === 0 ? (
         <div className="relative z-10 flex flex-col items-center justify-center py-20 bg-zinc-900/40 rounded-3xl border border-dashed border-white/10 mt-8">
            <Wallet className="h-12 w-12 text-zinc-600 mb-4" />
            <h3 className="text-lg font-bold text-white mb-2">Sua carteira está vazia</h3>
-           <p className="text-sm text-zinc-400 max-w-sm text-center">Nenhuma conta ou cartão encontrado. Comece a se organizar adicionando a sua primeira conta.</p>
+           <p className="text-sm text-zinc-400 max-w-sm text-center">Nenhuma conta encontrada. Comece a se organizar adicionando a sua primeira conta.</p>
         </div>
       ) : (
         <>
-          <CreditCardsList cards={mappedCreditCards} />
           <BankAccountsList accounts={mappedBankAccounts} />
+          <AccountHistory transactions={mappedHistory} accounts={accountOptions} />
         </>
       )}
     </div>

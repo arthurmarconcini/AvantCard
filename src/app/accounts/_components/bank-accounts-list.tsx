@@ -58,7 +58,7 @@ export function BankAccountsList({ accounts }: BankAccountsListProps) {
                     <Icon className="w-5 h-5" />
                   </div>
                   <div className="overflow-hidden">
-                    <h3 className="font-bold text-lg text-white group-hover:text-cyan-400 transition-colors truncate" title={account.name}>
+                    <h3 className="font-bold text-lg text-white group-hover:text-primary transition-colors truncate" title={account.name}>
                       {account.name}
                     </h3>
                     <p className="text-xs text-zinc-500 font-mono tracking-widest truncate">

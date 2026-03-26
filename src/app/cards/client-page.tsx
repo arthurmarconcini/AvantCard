@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { CreditCard, ShoppingCart, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { CreditCard, ShoppingCart, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddPurchaseModal } from "@/components/add-purchase-modal";
+import { AddCreditCardModal } from "./_components/add-credit-card-modal";
+import { CardsSummary } from "./_components/cards-summary";
 import { getInvoiceDateForTransaction } from "@/lib/billing";
 
 // Formatadores
@@ -51,13 +53,21 @@ export function CardsClientPage({
   persons,
   categories,
   initialCardId,
+  summaryData,
 }: {
   cards: Card[];
   persons: { id: string; name: string }[];
   categories: { id: string; name: string }[];
   initialCardId?: string;
+  summaryData: {
+    totalCreditLimit: number;
+    totalCreditUsed: number;
+    loanedFromCards: number;
+    cardsCount: number;
+  };
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const resolvedInitialCard = initialCardId && cards.some(c => c.id === initialCardId) ? initialCardId : (cards.length > 0 ? cards[0].id : null);
   const [selectedCardId, setSelectedCardId] = useState(resolvedInitialCard);
 
@@ -128,20 +138,44 @@ export function CardsClientPage({
           <h1 className="text-3xl font-extrabold text-white mb-2">Cartões de Crédito</h1>
           <p className="text-zinc-400">Gerencie seus limites, faturas e gastos parcelados.</p>
         </div>
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl font-bold h-11 px-7 shadow-[0_0_25px_rgba(57,255,20,0.25)] transition-all duration-300 hover:shadow-[0_0_40px_rgba(57,255,20,0.45)] hover:scale-[1.03] active:scale-[0.98] group/btn"
-        >
-          <ShoppingCart className="w-5 h-5 mr-2 transition-transform duration-300 group-hover/btn:-translate-y-px" />
-          Nova Compra
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setIsCardModalOpen(true)}
+            variant="outline"
+            className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary rounded-xl font-bold h-11 px-6 transition-all duration-300 hover:border-primary/50 hover:scale-[1.03] active:scale-[0.98] group/btn2"
+          >
+            <Plus className="w-5 h-5 mr-2 transition-transform duration-300 group-hover/btn2:rotate-90" />
+            Novo Cartão
+          </Button>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl font-bold h-11 px-7 shadow-[0_0_25px_rgba(57,255,20,0.25)] transition-all duration-300 hover:shadow-[0_0_40px_rgba(57,255,20,0.45)] hover:scale-[1.03] active:scale-[0.98] group/btn"
+          >
+            <ShoppingCart className="w-5 h-5 mr-2 transition-transform duration-300 group-hover/btn:-translate-y-px" />
+            Nova Compra
+          </Button>
+        </div>
       </div>
+
+      <CardsSummary
+        totalCreditLimit={summaryData.totalCreditLimit}
+        totalCreditUsed={summaryData.totalCreditUsed}
+        loanedFromCards={summaryData.loanedFromCards}
+        cardsCount={summaryData.cardsCount}
+      />
 
       {cards.length === 0 ? (
         <div className="bg-card/50 border border-white/5 rounded-3xl p-12 text-center flex flex-col items-center justify-center">
           <CreditCard className="w-16 h-16 text-zinc-700 mb-4" />
           <h2 className="text-xl font-bold mb-2">Nenhum Cartão Encontrado</h2>
-          <p className="text-zinc-500 mb-6 max-w-sm">Você não possui nenhum cartão de crédito configurado. Vá até a aba de Contas para adicionar seu primeiro cartão.</p>
+          <p className="text-zinc-500 mb-6 max-w-sm">Você não possui nenhum cartão de crédito configurado. Cadastre seu primeiro cartão para começar a gerenciar suas faturas.</p>
+          <Button
+            onClick={() => setIsCardModalOpen(true)}
+            className="bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl font-bold h-11 px-8 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Cadastrar Cartão
+          </Button>
         </div>
       ) : (
         <>
@@ -340,6 +374,11 @@ export function CardsClientPage({
         categories={categories}
         persons={persons}
         defaultAccountId={selectedCardId || undefined}
+      />
+
+      <AddCreditCardModal
+        open={isCardModalOpen}
+        onOpenChange={setIsCardModalOpen}
       />
     </div>
   );

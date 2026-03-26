@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, Controller, useWatch, type Resolver } from "react-hook-form";
+import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { NumericFormat } from "react-number-format";
@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Wallet, Building2, CreditCard } from "lucide-react";
+import { Plus, Wallet, Building2 } from "lucide-react";
 
 export function AddAccountModal() {
   const router = useRouter();
@@ -45,15 +45,11 @@ export function AddAccountModal() {
       type: "BANK_ACCOUNT",
       institutionName: "",
       last4: "",
-      creditLimit: "",
-      billingDay: undefined,
-      dueDay: undefined,
       initialBalance: "",
     },
   });
 
-  const accountType = useWatch({ control, name: "type" });
-  const isCreditCard = accountType === "CREDIT_CARD";
+
 
   async function onSubmit(data: AccountInput) {
     setServerError("");
@@ -89,9 +85,9 @@ export function AddAccountModal() {
         
         <div className="p-6">
           <DialogHeader className="mb-6 text-left">
-            <DialogTitle className="text-2xl font-extrabold text-white">Adicionar Conta</DialogTitle>
+            <DialogTitle className="text-2xl font-extrabold text-white">Nova Conta Bancária</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Registre um novo cartão, conta bancária ou carteira.
+              Registre uma nova conta bancária ou carteira.
             </DialogDescription>
           </DialogHeader>
 
@@ -126,7 +122,6 @@ export function AddAccountModal() {
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-900 border-white/10 rounded-xl">
                         <SelectItem value="BANK_ACCOUNT" className="focus:bg-zinc-800 focus:text-white cursor-pointer"><div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-zinc-400" />Conta Bancária</div></SelectItem>
-                        <SelectItem value="CREDIT_CARD" className="focus:bg-zinc-800 focus:text-white cursor-pointer"><div className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-[#00FFFF]" />Cartão de Crédito</div></SelectItem>
                         <SelectItem value="WALLET" className="focus:bg-zinc-800 focus:text-white cursor-pointer"><div className="flex items-center gap-2"><Wallet className="w-4 h-4 text-primary" />Carteira (Dinheiro)</div></SelectItem>
                         <SelectItem value="OTHER" className="focus:bg-zinc-800 focus:text-white cursor-pointer">Outro</SelectItem>
                       </SelectContent>
@@ -158,68 +153,8 @@ export function AddAccountModal() {
               </div>
             </div>
 
-            {isCreditCard && (
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="col-span-2 space-y-2">
-                  <Label className="text-zinc-300 font-medium">Limite de Crédito</Label>
-                  <Controller
-                    control={control}
-                    name="creditLimit"
-                    render={({ field }) => (
-                      <NumericFormat
-                        value={field.value ? Number(field.value) / 100 : ""}
-                        onValueChange={(values) => {
-                          if (values.floatValue !== undefined) {
-                            field.onChange(Math.round(values.floatValue * 100).toString());
-                          } else {
-                            field.onChange("");
-                          }
-                        }}
-                        prefix="R$ "
-                        thousandSeparator="."
-                        decimalSeparator=","
-                        decimalScale={2}
-                        fixedDecimalScale
-                        allowNegative={false}
-                        placeholder="R$ 0,00"
-                        customInput={Input}
-                        className="h-11 bg-black/40 border-primary/20 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl"
-                      />
-                    )}
-                  />
-                  {errors.creditLimit && <p className="text-red-500 text-xs">{errors.creditLimit.message}</p>}
-                </div>
-
-                <div className="col-span-1 space-y-2">
-                  <Label className="text-zinc-300 font-medium">Dias p/ Fechamento</Label>
-                  <Input 
-                    {...register("billingDay")}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="Ex: 7" 
-                    min={1} max={31}
-                    className="h-11 bg-black/40 border-primary/20 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  {errors.billingDay && <p className="text-red-500 text-xs">{errors.billingDay.message}</p>}
-                </div>
-
-                <div className="col-span-1 space-y-2">
-                  <Label className="text-zinc-300 font-medium">Dia de Vencimento</Label>
-                  <Input 
-                    {...register("dueDay")}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="Ex: 15"
-                    min={1} max={31} 
-                    className="h-11 bg-black/40 border-primary/20 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  {errors.dueDay && <p className="text-red-500 text-xs">{errors.dueDay.message}</p>}
-                </div>
-              </div>
-            )}
-
-            {!isCreditCard && (
-              <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+            {(
+              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 font-medium">Saldo Inicial</Label>
                   <Controller
@@ -243,7 +178,7 @@ export function AddAccountModal() {
                         allowNegative={false}
                         placeholder="R$ 0,00"
                         customInput={Input}
-                        className="h-11 bg-black/40 border-cyan-500/20 text-white placeholder:text-zinc-600 focus-visible:ring-cyan-400 focus-visible:border-cyan-400/50 transition-all rounded-xl"
+                        className="h-11 bg-black/40 border-primary/20 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl"
                       />
                     )}
                   />

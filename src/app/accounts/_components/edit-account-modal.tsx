@@ -89,7 +89,7 @@ export function EditAccountModal({ open, onOpenChange, account }: EditAccountMod
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] bg-zinc-900/90 backdrop-blur-2xl border-white/5 shadow-2xl rounded-3xl overflow-hidden p-0">
-        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-cyan-500/10 via-cyan-400 to-cyan-500/10" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-primary/10 via-primary to-primary/10" />
 
         <div className="p-6">
           <DialogHeader className="mb-6 text-left">
@@ -223,7 +223,7 @@ export function EditAccountModal({ open, onOpenChange, account }: EditAccountMod
             )}
 
             {!isCreditCard && (
-              <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-2">
                   <Label className="text-zinc-300 font-medium">Saldo Inicial</Label>
                   <Controller
@@ -247,7 +247,7 @@ export function EditAccountModal({ open, onOpenChange, account }: EditAccountMod
                         allowNegative={false}
                         placeholder="R$ 0,00"
                         customInput={Input}
-                        className="h-11 bg-black/40 border-cyan-500/20 text-white placeholder:text-zinc-600 focus-visible:ring-cyan-400 focus-visible:border-cyan-400/50 transition-all rounded-xl"
+                        className="h-11 bg-black/40 border-primary/20 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl"
                       />
                     )}
                   />
@@ -269,7 +269,7 @@ export function EditAccountModal({ open, onOpenChange, account }: EditAccountMod
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-11 bg-cyan-400 text-zinc-950 hover:bg-cyan-300 rounded-xl px-6 font-bold"
+                className="h-11 bg-primary text-zinc-950 hover:bg-primary/90 rounded-xl px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
               >
                 {isSubmitting ? "Salvando..." : "Salvar Alterações"}
               </Button>
