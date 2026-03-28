@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, ShoppingCart, ArrowDownRight, ArrowUpRight, CheckCircle2, Tag, User, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CreditCard, ShoppingCart, ArrowDownRight, ArrowUpRight, CheckCircle2, Tag, User, ChevronLeft, ChevronRight, Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddPurchaseModal } from "@/components/add-purchase-modal";
 import { AddCreditCardModal } from "./_components/add-credit-card-modal";
+import { EditCreditCardModal } from "./_components/edit-credit-card-modal";
 import { CardsSummary } from "./_components/cards-summary";
 import { PayBillModal } from "./_components/pay-bill-modal";
 import { getInvoiceDateForTransaction } from "@/lib/billing";
@@ -71,6 +72,7 @@ export function CardsClientPage({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isPayBillModalOpen, setIsPayBillModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   const resolvedInitialCard = initialCardId && cards.some(c => c.id === initialCardId) ? initialCardId : (cards.length > 0 ? cards[0].id : null);
   const [selectedCardId, setSelectedCardId] = useState(resolvedInitialCard);
@@ -264,9 +266,20 @@ export function CardsClientPage({
             <div className="bg-card border border-white/5 rounded-3xl p-6 md:p-8 mt-8 fade-in-up">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
-                  <h3 className="text-xl font-bold flex items-center gap-2">
-                    Fatura <span className="text-primary">{selectedCard.name}</span>
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      Fatura <span className="text-primary">{selectedCard.name}</span>
+                    </h3>
+                    <Button
+                       variant="ghost"
+                       size="icon"
+                       onClick={() => setIsEditModalOpen(true)}
+                       title="Editar Cartão"
+                       className="w-8 h-8 rounded-full text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </div>
                   
                   <div className="flex items-center gap-3 mt-3">
                     <Button variant="outline" size="icon" onClick={previousMonth} className="h-8 w-8 rounded-full border-white/10 hover:bg-white/10 text-zinc-400 bg-transparent">
@@ -412,6 +425,14 @@ export function CardsClientPage({
         open={isCardModalOpen}
         onOpenChange={setIsCardModalOpen}
       />
+
+      {selectedCard && (
+        <EditCreditCardModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          card={selectedCard}
+        />
+      )}
 
       {selectedCard && (
         <PayBillModal

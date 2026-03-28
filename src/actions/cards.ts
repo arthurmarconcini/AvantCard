@@ -222,3 +222,53 @@ export async function payCardBill(data: {
     } 
   };
 }
+
+export async function updateCreditCard(
+  accountId: string,
+  data: {
+    name: string;
+    institutionName?: string | null;
+    last4?: string | null;
+    creditLimit?: number | null;
+    billingDay?: number | null;
+    dueDay?: number | null;
+  }
+) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    throw new Error("Não autorizado");
+  }
+
+  const userId = session.user.id;
+
+  const account = await prisma.account.findUnique({
+    where: {
+      id: accountId,
+      userId,
+    },
+  });
+
+  if (!account) {
+    throw new Error("Cartão não encontrado ou não pertence a este usuário.");
+  }
+
+  const updated = await prisma.account.update({
+    where: { id: accountId },
+    data: {
+      name: data.name,
+      institutionName: data.institutionName || null,
+      last4: data.last4 || null,
+      creditLimit: data.creditLimit ? Number(data.creditLimit) : null,
+      billingDay: data.billingDay || null,
+      dueDay: data.dueDay || null,
+    },
+  });
+
+  revalidatePath("/cards");
+
+  return { success: true, account: {
+    ...updated,
+    creditLimit: updated.creditLimit ? Number(updated.creditLimit) : null,
+  } };
+}
