@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { CreditCard, ShoppingCart, ArrowDownRight, Tag, User, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useState } from "react";
+import { CreditCard, ShoppingCart, ArrowDownRight, ArrowUpRight, CheckCircle2, Tag, User, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddPurchaseModal } from "@/components/add-purchase-modal";
 import { AddCreditCardModal } from "./_components/add-credit-card-modal";
 import { CardsSummary } from "./_components/cards-summary";
+import { PayBillModal } from "./_components/pay-bill-modal";
 import { getInvoiceDateForTransaction } from "@/lib/billing";
 
 // Formatadores
@@ -27,6 +28,7 @@ const formatDate = (date: Date) => {
 // Tipagens baseadas nos dados do Prisma retornados p/ o client
 interface Transaction {
   id: string;
+  type?: string;
   amount: number;
   direction: "DEBIT" | "CREDIT";
   description: string | null;
@@ -68,38 +70,15 @@ export function CardsClientPage({
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [isPayBillModalOpen, setIsPayBillModalOpen] = useState(false);
+  
   const resolvedInitialCard = initialCardId && cards.some(c => c.id === initialCardId) ? initialCardId : (cards.length > 0 ? cards[0].id : null);
   const [selectedCardId, setSelectedCardId] = useState(resolvedInitialCard);
 
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-
-  const scrollCarousel = (direction: 'left' | 'right') => {
-    if (carouselRef.current) {
-      const scrollAmount = window.innerWidth > 768 ? 600 : 300;
-      carouselRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    }
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!carouselRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - carouselRef.current.offsetLeft);
-    setScrollLeft(carouselRef.current.scrollLeft);
-  };
-
-  const handleMouseLeave = () => setIsDragging(false);
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !carouselRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - carouselRef.current.offsetLeft;
-    const walk = (x - startX) * 1.2; 
-    carouselRef.current.scrollLeft = scrollLeft - walk;
-  };
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGINATION_LIMIT = 6;
+  const totalPages = Math.ceil(cards.length / PAGINATION_LIMIT);
+  const paginatedCards = cards.slice((currentPage - 1) * PAGINATION_LIMIT, currentPage * PAGINATION_LIMIT);
 
   const selectedCard = cards.find((c) => c.id === selectedCardId);
 
@@ -115,21 +94,36 @@ export function CardsClientPage({
   
   const invoiceMonthName = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(invoiceDate);
 
-  const totalGlobalSpent = selectedCard?.transactions.reduce(
-    (acc: number, t: Transaction) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)),
-    0
-  ) || 0;
-
   const currentInvoiceTransactions = selectedCard?.transactions.filter(t => {
     const d = getInvoiceDateForTransaction(t, selectedCard);
     return d.getMonth() === invoiceDate.getMonth() && d.getFullYear() === invoiceDate.getFullYear();
   }) || [];
 
-  const invoiceSpent = currentInvoiceTransactions.reduce((acc, t) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)), 0);
+  const totalPurchases = currentInvoiceTransactions.reduce((acc, t) => acc + (t.direction === "DEBIT" ? Number(t.amount) : 0), 0);
+  const totalPayments = currentInvoiceTransactions.reduce((acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : 0), 0);
+  const invoiceSpent = Math.max(0, totalPurchases - totalPayments);
+  
+  const isPaidOut = totalPurchases > 0 && invoiceSpent <= 0;
+  const isPartiallyPaid = totalPayments > 0 && invoiceSpent > 0;
 
-  const creditLimit = selectedCard?.creditLimit ? Number(selectedCard.creditLimit) : 0;
-  const availableLimit = Math.max(0, creditLimit - totalGlobalSpent);
-  const limitPercentage = creditLimit > 0 ? (totalGlobalSpent / creditLimit) * 100 : 0;
+  const isInvoiceClosed = (() => {
+    if (!selectedCard) return false;
+    const closingDay = selectedCard.billingDay || (selectedCard.dueDay ? selectedCard.dueDay - 7 : 1);
+    const dueDay = selectedCard.dueDay || 1;
+    
+    const invMonth = invoiceDate.getMonth();
+    const invYear = invoiceDate.getFullYear();
+    
+    const closeMonth = dueDay < closingDay ? invMonth - 1 : invMonth;
+    const closedDate = new Date(invYear, closeMonth, closingDay);
+    
+    // To ignore time of day and just compare dates
+    closedDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return today.getTime() >= closedDate.getTime();
+  })();
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
@@ -179,94 +173,92 @@ export function CardsClientPage({
         </div>
       ) : (
         <>
-          <div className="relative group">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => scrollCarousel('left')} 
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 h-12 w-12 -translate-x-4 rounded-full border-white/10 bg-zinc-950/90 backdrop-blur-md text-white shadow-[0_0_30px_rgba(0,0,0,0.8)] opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 hover:bg-zinc-800 transition-all hidden md:flex"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedCards.map((card) => {
+              const spent = card.transactions.reduce((acc: number, t: Transaction) => acc + (t.direction === "DEBIT" ? Number(t.amount) : -Number(t.amount)), 0);
+              const limit = card.creditLimit ? Number(card.creditLimit) : 0;
+              const isSelected = selectedCardId === card.id;
 
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => scrollCarousel('right')} 
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 h-12 w-12 translate-x-4 rounded-full border-white/10 bg-zinc-950/90 backdrop-blur-md text-white shadow-[0_0_30px_rgba(0,0,0,0.8)] opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 hover:bg-zinc-800 transition-all hidden md:flex"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </Button>
+              const availableLimit = Math.max(0, limit - spent);
 
-            <div 
-               ref={carouselRef}
-               onMouseDown={handleMouseDown}
-               onMouseLeave={handleMouseLeave}
-               onMouseUp={handleMouseUp}
-               onMouseMove={handleMouseMove}
-               className={`flex gap-4 overflow-x-auto pb-6 pt-2 custom-scrollbar select-none ${isDragging ? '' : 'snap-x snap-mandatory'}`}
-               style={{ cursor: isDragging ? 'grabbing' : 'grab', scrollBehavior: isDragging ? 'auto' : 'smooth' }}
-            >
-              {cards.map((card) => {
-                const spent = card.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
-                const limit = card.creditLimit ? Number(card.creditLimit) : 0;
-                const isSelected = selectedCardId === card.id;
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => setSelectedCardId(card.id)}
+                  className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300 border backdrop-blur-xl flex flex-col justify-between ${
+                    isSelected
+                      ? "bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20 scale-[1.02]"
+                      : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
+                  )}
 
-                const availableLimit = Math.max(0, limit - spent);
-
-                return (
-                  <div
-                    key={card.id}
-                    onClick={() => setSelectedCardId(card.id)}
-                    className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300 border backdrop-blur-xl min-w-[85vw] md:min-w-[320px] shrink-0 snap-center flex flex-col justify-between ${
-                      isSelected
-                        ? "bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20"
-                        : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
-                    )}
-
-                    <div className="flex justify-between items-start mb-8 relative z-10 gap-2">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-white/5 text-zinc-400'}`}>
-                          <CreditCard className="w-5 h-5" />
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="font-bold text-lg truncate" title={card.name}>{card.name}</p>
-                          <p className="text-xs text-zinc-500 font-mono tracking-widest truncate">
-                            •••• {card.last4 || "0000"}
-                          </p>
-                        </div>
+                  <div className="flex justify-between items-start mb-8 relative z-10 gap-2">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-white/5 text-zinc-400'}`}>
+                        <CreditCard className="w-5 h-5" />
                       </div>
-                      <Badge variant="outline" className={`shrink-0 ${isSelected ? "border-primary/30 text-primary bg-primary/10" : "border-white/10 text-zinc-400"}`}>
-                        Dia {card.dueDay || "--"}
-                      </Badge>
+                      <div className="overflow-hidden">
+                        <p className="font-bold text-lg truncate" title={card.name}>{card.name}</p>
+                        <p className="text-xs text-zinc-500 font-mono tracking-widest truncate">
+                          •••• {card.last4 || "0000"}
+                        </p>
+                      </div>
                     </div>
+                    <Badge variant="outline" className={`shrink-0 ${isSelected ? "border-primary/30 text-primary bg-primary/10" : "border-white/10 text-zinc-400"}`}>
+                      Dia {card.dueDay || "--"}
+                    </Badge>
+                  </div>
 
-                    <div className="space-y-2 relative z-10">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-zinc-400">Fatura Atual</span>
-                        <span className="font-bold">{formatCurrency(spent)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500 text-xs">Limite Disp.</span>
-                        <span className="text-zinc-400 text-xs">{formatCurrency(availableLimit)}</span>
-                      </div>
-                      
-                      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
-                         <div 
-                           className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-primary' : 'bg-zinc-600'}`}
-                           style={{ width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%` }}
-                         />
-                      </div>
+                  <div className="space-y-2 relative z-10">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-400">Total Faturas</span>
+                      <span className="font-bold">{formatCurrency(spent)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-500 text-xs">Limite Disp.</span>
+                      <span className="text-zinc-400 text-xs">{formatCurrency(availableLimit)}</span>
+                    </div>
+                    
+                    <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mt-2">
+                       <div 
+                         className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-primary' : 'bg-zinc-600'}`}
+                         style={{ width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%` }}
+                       />
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-full border-white/10 bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="text-sm text-zinc-400">
+                Página <span className="font-bold text-white">{currentPage}</span> de {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-full border-white/10 bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
 
           {selectedCard && (
             <div className="bg-card border border-white/5 rounded-3xl p-6 md:p-8 mt-8 fade-in-up">
@@ -290,20 +282,44 @@ export function CardsClientPage({
                 </div>
                 
                 <div className="text-right flex flex-col items-end">
-                   <p className="text-sm font-medium text-zinc-400 mb-1">Total da Fatura</p>
-                   <p className="text-3xl font-extrabold text-white">{formatCurrency(invoiceSpent)}</p>
-                   {creditLimit > 0 && (
-                     <div className="mt-2 w-48">
-                        <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                          <span>Disp: <span className="text-primary">{formatCurrency(availableLimit)}</span></span>
-                          <span>{limitPercentage.toFixed(0)}% uso</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full rounded-full bg-primary transition-all duration-500"
-                            style={{ width: `${Math.min(100, limitPercentage)}%` }}
-                          />
-                        </div>
+                   <p className="text-sm font-medium text-zinc-400 mb-1">
+                     {isPaidOut ? "Fatura Totalmente Paga" : "Total da Fatura"}
+                   </p>
+                   <p className={`text-3xl font-extrabold mb-3 ${isPaidOut ? "text-primary drop-shadow-[0_0_15px_rgba(57,255,20,0.3)]" : "text-white"}`}>
+                     {formatCurrency(invoiceSpent)}
+                   </p>
+                   
+                   {isPaidOut ? (
+                     <div className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-2 shadow-[0_0_15px_rgba(57,255,20,0.1)]">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-bold text-primary tracking-wide uppercase">Paga</span>
+                     </div>
+                   ) : isInvoiceClosed ? (
+                     <div className="flex flex-col items-end gap-2">
+                       {isPartiallyPaid && (
+                         <div className="text-xs font-semibold text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-1 rounded-md mb-1">
+                           Falta {formatCurrency(invoiceSpent)}
+                         </div>
+                       )}
+                       <Button 
+                          onClick={() => setIsPayBillModalOpen(true)}
+                          size="sm"
+                          className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 rounded-lg font-semibold shadow-none transition-all"
+                       >
+                          Pagar Fatura
+                       </Button>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-end gap-2">
+                       {isPartiallyPaid && (
+                         <div className="text-xs font-semibold text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-1 rounded-md mb-1">
+                           Pagamento Parcial Realizado
+                         </div>
+                       )}
+                       <div className="px-3 py-1.5 bg-zinc-800/50 border border-zinc-700/50 rounded-lg flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse" />
+                          <span className="text-[11px] font-bold text-zinc-400 tracking-wide uppercase">Fatura Aberta</span>
+                       </div>
                      </div>
                    )}
                 </div>
@@ -315,47 +331,63 @@ export function CardsClientPage({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {currentInvoiceTransactions.map((t: Transaction) => (
-                    <div key={t.id} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-950/30 border border-white/5 hover:border-white/10 hover:bg-zinc-900/60 transition-colors">
-                      
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
-                          <ArrowDownRight className="w-5 h-5" />
-                        </div>
+                  {currentInvoiceTransactions.map((t: Transaction) => {
+                    const isPayment = t.type === "BILL_PAYMENT" || t.direction === "CREDIT";
+                    
+                    return (
+                      <div key={t.id} className={`group flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${
+                        isPayment 
+                          ? "bg-zinc-950/30 border-primary/10 hover:border-primary/30 hover:bg-zinc-900/40 hover:shadow-[0_0_20px_rgba(57,255,20,0.05)]" 
+                          : "bg-zinc-950/30 border-white/5 hover:border-white/10 hover:bg-zinc-900/60"
+                      }`}>
                         
-                        <div className="flex flex-col gap-1">
-                          <p className="font-semibold text-sm">{t.description}</p>
-                          <div className="flex items-center gap-3 text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
-                            <span>{formatDate(t.transactionDate)}</span>
-                            {t.category && (
-                              <span className="flex items-center gap-1">
-                                <span className="w-1 h-1 rounded-full bg-zinc-600" />
-                                <Tag className="w-3 h-3 ml-1" />
-                                {t.category.name}
-                              </span>
-                            )}
-                            {t.person && (
-                              <span className="flex items-center gap-1 text-primary/70">
-                                <span className="w-1 h-1 rounded-full bg-primary/30" />
-                                <User className="w-3 h-3 ml-1" />
-                                {t.person.name}
-                              </span>
-                            )}
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                            isPayment 
+                              ? "bg-primary/20 text-primary shadow-[0_0_15px_rgba(57,255,20,0.15)]" 
+                              : "bg-orange-500/10 text-orange-500"
+                          }`}>
+                            {isPayment ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                          </div>
+                          
+                          <div className="flex flex-col gap-1">
+                            <p className={`font-bold text-sm ${isPayment ? "text-primary" : "text-zinc-100"}`}>
+                              {t.description}
+                            </p>
+                            <div className="flex items-center gap-3 text-[11px] font-medium text-zinc-500 uppercase tracking-widest">
+                              <span>{formatDate(t.transactionDate)}</span>
+                              {t.category && !isPayment && (
+                                <span className="flex items-center gap-1">
+                                  <span className="w-1 h-1 rounded-full bg-zinc-600" />
+                                  <Tag className="w-3 h-3 ml-1" />
+                                  {t.category.name}
+                                </span>
+                              )}
+                              {t.person && !isPayment && (
+                                <span className="flex items-center gap-1 text-primary/70">
+                                  <span className="w-1 h-1 rounded-full bg-primary/30" />
+                                  <User className="w-3 h-3 ml-1" />
+                                  {t.person.name}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-right flex flex-col items-end">
-                        <span className="font-bold text-sm">{formatCurrency(Number(t.amount))}</span>
-                        {t.installmentTotal && t.installmentTotal > 1 ? (
-                           <Badge variant="outline" className="mt-1 py-0 text-[10px] border-white/10 text-zinc-400 bg-white/5">
-                             {t.installmentNumber}/{t.installmentTotal}
-                           </Badge>
-                        ) : null}
-                      </div>
+                        <div className="text-right flex flex-col items-end">
+                          <span className={`font-black text-sm ${isPayment ? "text-primary" : ""}`}>
+                            {isPayment ? "+" : ""}{formatCurrency(Number(t.amount))}
+                          </span>
+                          {t.installmentTotal && t.installmentTotal > 1 ? (
+                             <Badge variant="outline" className="mt-1 py-0 text-[10px] border-white/10 text-zinc-400 bg-white/5">
+                               {t.installmentNumber}/{t.installmentTotal}
+                             </Badge>
+                          ) : null}
+                        </div>
 
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -380,6 +412,17 @@ export function CardsClientPage({
         open={isCardModalOpen}
         onOpenChange={setIsCardModalOpen}
       />
+
+      {selectedCard && (
+        <PayBillModal
+          open={isPayBillModalOpen}
+          onOpenChange={setIsPayBillModalOpen}
+          cardId={selectedCard.id}
+          cardName={selectedCard.name}
+          suggestedAmount={invoiceSpent}
+          defaultDate={new Date(invoiceDate.getFullYear(), invoiceDate.getMonth(), selectedCard.dueDay || 1)}
+        />
+      )}
     </div>
   );
 }

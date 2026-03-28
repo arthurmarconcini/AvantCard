@@ -174,3 +174,51 @@ export async function createPurchase(data: {
     } 
   };
 }
+
+export async function payCardBill(data: {
+  accountId: string;
+  amount: number; // Em centavos inteiros
+  transactionDate: Date;
+}) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    throw new Error("Não autorizado");
+  }
+
+  const userId = session.user.id;
+
+  const account = await prisma.account.findUnique({
+    where: {
+      id: data.accountId,
+      userId,
+    },
+  });
+
+  if (!account) {
+    throw new Error("Cartão não encontrado ou não pertence a este usuário.");
+  }
+
+  const transaction = await prisma.transaction.create({
+    data: {
+      userId,
+      accountId: data.accountId,
+      type: "BILL_PAYMENT",
+      direction: "CREDIT",
+      amount: data.amount,
+      description: "Pagamento de Fatura",
+      transactionDate: data.transactionDate,
+      postingDate: data.transactionDate,
+    },
+  });
+
+  revalidatePath("/cards");
+
+  return { 
+    success: true, 
+    transaction: {
+      ...transaction,
+      amount: Number(transaction.amount)
+    } 
+  };
+}
