@@ -162,8 +162,10 @@ export default async function DashboardPage() {
     };
   });
 
-  // Contas registradas — com saldo real
-  const accountsDisplay = accounts.map((account) => {
+  // Contas registradas — com saldo real (ordenadas por mais uso)
+  const sortedAccounts = [...accounts].sort((a, b) => b.transactions.length - a.transactions.length);
+
+  const accountsDisplay = sortedAccounts.map((account) => {
     const txBalance = account.transactions.reduce(
       (acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)),
       0,
