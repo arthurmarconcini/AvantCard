@@ -10,21 +10,7 @@ import { EditCreditCardModal } from "./_components/edit-credit-card-modal";
 import { CardsSummary } from "./_components/cards-summary";
 import { PayBillModal } from "./_components/pay-bill-modal";
 import { getInvoiceDateForTransaction } from "@/lib/billing";
-
-// Formatadores
-const formatCurrency = (valueInCents: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
-};
-
-const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(date));
-};
+import { formatCurrency, formatDate } from "@/lib/format";
 
 // Tipagens baseadas nos dados do Prisma retornados p/ o client
 interface Transaction {

@@ -15,3 +15,10 @@ export function getDaysUntilDue(date: Date): number {
   const diffTime = dueDate.getTime() - today.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
+
+export function formatDate(date: Date | string | number): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(date));
+}
