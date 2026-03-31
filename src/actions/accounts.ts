@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { syncAccountBalance } from "@/lib/balances";
 import { accountSchema } from "@/lib/validators/account";
 
 export async function deleteAccount(accountId: string) {
@@ -80,6 +81,8 @@ export async function updateAccount(accountId: string, rawData: unknown) {
     },
   });
 
+  await syncAccountBalance(accountId);
+
   revalidatePath("/accounts");
   revalidatePath("/cards");
   revalidatePath("/");
@@ -114,6 +117,8 @@ export async function depositToAccount(data: {
       transactionDate: data.date ?? new Date(),
     },
   });
+
+  await syncAccountBalance(data.accountId);
 
   revalidatePath("/accounts");
   revalidatePath("/");
@@ -164,6 +169,8 @@ export async function withdrawFromAccount(data: {
       transactionDate: data.date ?? new Date(),
     },
   });
+
+  await syncAccountBalance(data.accountId);
 
   revalidatePath("/accounts");
   revalidatePath("/");

@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { AddAccountModal } from "@/components/add-account-modal";
+import { AddAccountModal } from "./_components/add-account-modal";
 import { AccountsSummary } from "./_components/accounts-summary";
 import { BankAccountsList } from "./_components/bank-accounts-list";
 import { AccountHistory } from "./_components/account-history";

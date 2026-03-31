@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { syncAccountBalance } from "@/lib/balances";
 
 export async function getLoansDashboard() {
   const session = await getServerSession(authOptions);
@@ -164,6 +165,8 @@ export async function createLoan(data: {
     }
   });
 
+  await syncAccountBalance(originAccountId);
+
   revalidatePath("/loans");
   revalidatePath("/people");
   revalidatePath("/");
@@ -241,6 +244,8 @@ export async function payInstallment(scheduleId: string, receivingAccountId: str
     });
   }
 
+  await syncAccountBalance(receivingAccountId);
+
   revalidatePath("/loans");
   revalidatePath("/people");
   revalidatePath("/");
@@ -261,8 +266,14 @@ export async function deleteLoan(loanId: string) {
   if (!loan) throw new Error("Empréstimo não encontrado");
 
   const paidSchedules = loan.schedules.filter(s => s.status === "PAID" && s.transactionId);
+  const accountsToSync = new Set<string>();
+  accountsToSync.add(loan.originAccountId);
+
   for (const schedule of paidSchedules) {
     if (schedule.transactionId) {
+      const tx = await prisma.transaction.findUnique({ where: { id: schedule.transactionId } });
+      if (tx) accountsToSync.add(tx.accountId);
+
       await prisma.transaction.deleteMany({
         where: { parentTransactionId: schedule.transactionId }
       });
@@ -289,6 +300,10 @@ export async function deleteLoan(loanId: string) {
 
   await prisma.loan.delete({ where: { id: loanId } });
 
+  for (const accountId of accountsToSync) {
+    await syncAccountBalance(accountId);
+  }
+
   revalidatePath("/loans");
   revalidatePath("/people");
   revalidatePath("/");
@@ -312,6 +327,8 @@ export async function revertInstallment(scheduleId: string) {
   }
 
   // Deletar a transação pai e filhas (INTEREST)
+  const tx = await prisma.transaction.findUnique({ where: { id: schedule.transactionId } });
+
   await prisma.transaction.deleteMany({
     where: { parentTransactionId: schedule.transactionId }
   });
@@ -319,6 +336,8 @@ export async function revertInstallment(scheduleId: string) {
   await prisma.transaction.delete({
     where: { id: schedule.transactionId }
   });
+
+  if (tx) await syncAccountBalance(tx.accountId);
 
   // Atualizar para PENDING
   await prisma.loanSchedule.update({

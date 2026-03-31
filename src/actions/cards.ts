@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { syncAccountBalance } from "@/lib/balances";
 
 export async function getCardsAndTransactions() {
   const session = await getServerSession(authOptions);
@@ -35,6 +36,8 @@ export async function getCardsAndTransactions() {
   return cards.map(card => ({
     ...card,
     creditLimit: card.creditLimit ? Number(card.creditLimit) : null,
+    initialBalance: card.initialBalance ? Number(card.initialBalance) : null,
+    currentBalance: card.currentBalance ? Number(card.currentBalance) : null,
     transactions: card.transactions.map(t => ({
       ...t,
       amount: Number(t.amount)
@@ -164,6 +167,8 @@ export async function createPurchase(data: {
     savedTransactions = await prisma.$transaction(creates);
   }
 
+  await syncAccountBalance(data.accountId);
+
   revalidatePath("/cards");
 
   return { 
@@ -211,6 +216,8 @@ export async function payCardBill(data: {
       postingDate: data.transactionDate,
     },
   });
+
+  await syncAccountBalance(data.accountId);
 
   revalidatePath("/cards");
 
@@ -265,10 +272,17 @@ export async function updateCreditCard(
     },
   });
 
+  await syncAccountBalance(accountId);
+
   revalidatePath("/cards");
 
-  return { success: true, account: {
-    ...updated,
-    creditLimit: updated.creditLimit ? Number(updated.creditLimit) : null,
-  } };
+  return { 
+    success: true, 
+    account: {
+      ...updated,
+      creditLimit: updated.creditLimit ? Number(updated.creditLimit) : null,
+      initialBalance: updated.initialBalance ? Number(updated.initialBalance) : null,
+      currentBalance: updated.currentBalance !== null ? Number(updated.currentBalance) : null,
+    } 
+  };
 }

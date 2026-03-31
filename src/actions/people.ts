@@ -61,6 +61,7 @@ export async function getPeopleDashboard() {
           ...t.account,
           creditLimit: t.account.creditLimit ? Number(t.account.creditLimit) : null,
           initialBalance: t.account.initialBalance ? Number(t.account.initialBalance) : null,
+          currentBalance: t.account.currentBalance !== null ? Number(t.account.currentBalance) : null,
         }
       })),
       loans: person.loans.map(l => ({

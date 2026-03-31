@@ -67,6 +67,7 @@ model Account {
 
   // Saldo inicial (para contas bancárias e carteiras)
   initialBalance Decimal? @map("initial_balance") @db.Decimal(12, 2)
+  currentBalance Decimal? @default(0) @map("current_balance") @db.Decimal(12, 2)
 
   // Metadados
   institutionName String? @map("institution_name")

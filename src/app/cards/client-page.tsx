@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CreditCard, ShoppingCart, ArrowDownRight, ArrowUpRight, CheckCircle2, Tag, User, ChevronLeft, ChevronRight, Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AddPurchaseModal } from "@/components/add-purchase-modal";
+import { AddPurchaseModal } from "@/app/cards/_components/add-purchase-modal";
 import { AddCreditCardModal } from "./_components/add-credit-card-modal";
 import { EditCreditCardModal } from "./_components/edit-credit-card-modal";
 import { CardsSummary } from "./_components/cards-summary";

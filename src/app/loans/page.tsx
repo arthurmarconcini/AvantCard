@@ -24,6 +24,7 @@ export default async function LoansPage() {
     ...a,
     initialBalance: a.initialBalance ? Number(a.initialBalance) : null,
     creditLimit: a.creditLimit ? Number(a.creditLimit) : null,
+    currentBalance: a.currentBalance !== null ? Number(a.currentBalance) : null,
   }));
 
   return (
