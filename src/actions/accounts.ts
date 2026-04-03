@@ -5,7 +5,74 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { syncAccountBalance } from "@/lib/balances";
+import { Prisma } from "@prisma/client";
 import { accountSchema } from "@/lib/validators/account";
+
+const HISTORY_PAGE_SIZE = 20;
+
+interface HistoryFilters {
+  accountId?: string;
+  type?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getAccountHistory(
+  filters: HistoryFilters = {},
+  cursor?: string,
+  take: number = HISTORY_PAGE_SIZE
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Não autorizado");
+
+  const where: Prisma.TransactionWhereInput = {
+    userId: session.user.id,
+    type: { in: ["DEPOSIT", "WITHDRAWAL", "LOAN_DISBURSEMENT", "LOAN_REPAYMENT"] },
+    account: { type: { in: ["BANK_ACCOUNT", "WALLET", "CASH", "OTHER"] } },
+  };
+
+  if (filters.accountId) {
+    where.accountId = filters.accountId;
+  }
+  if (filters.type) {
+    where.type = filters.type as Prisma.EnumTransactionTypeFilter;
+  }
+  if (filters.dateFrom || filters.dateTo) {
+    where.transactionDate = {};
+    if (filters.dateFrom) {
+      (where.transactionDate as Prisma.DateTimeFilter).gte = new Date(filters.dateFrom + "T00:00:00");
+    }
+    if (filters.dateTo) {
+      (where.transactionDate as Prisma.DateTimeFilter).lte = new Date(filters.dateTo + "T23:59:59");
+    }
+  }
+
+  const transactions = await prisma.transaction.findMany({
+    where,
+    include: { account: { select: { name: true } } },
+    orderBy: { transactionDate: "desc" },
+    take: take + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = transactions.length > take;
+  const items = (hasMore ? transactions.slice(0, take) : transactions).map((t) => ({
+    id: t.id,
+    type: t.type,
+    direction: t.direction,
+    amount: Number(t.amount),
+    description: t.description,
+    transactionDate: t.transactionDate.toISOString(),
+    accountId: t.accountId,
+    accountName: t.account.name,
+  }));
+
+  return {
+    items,
+    nextCursor: hasMore ? items[items.length - 1]?.id : null,
+  };
+}
+
 
 export async function deleteAccount(accountId: string) {
   const session = await getServerSession(authOptions);
@@ -137,18 +204,12 @@ export async function withdrawFromAccount(data: {
 
   const account = await prisma.account.findUnique({
     where: { id: data.accountId, userId: session.user.id },
-    include: { transactions: { select: { amount: true, direction: true } } },
   });
 
   if (!account) throw new Error("Conta não encontrada.");
   if (account.type === "CREDIT_CARD") throw new Error("Saques não se aplicam a cartões de crédito.");
 
-  const initial = Number(account.initialBalance || 0);
-  const transactionBalance = account.transactions.reduce(
-    (acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)),
-    0,
-  );
-  const currentBalance = initial + transactionBalance;
+  const currentBalance = Number(account.currentBalance || 0);
   const withdrawalCents = Math.round(data.amount * 100);
 
   if (withdrawalCents > currentBalance) {

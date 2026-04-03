@@ -5,22 +5,12 @@ import { Users, Plus, Edit2, Trash2, Eye, CreditCard, Banknote, Search, Coins } 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
 import { formatCurrency } from "@/lib/format";
 import { useRouter } from "next/navigation";
 import { AddPersonModal } from "./add-person-modal";
 import { DeletePersonModal } from "./delete-person-modal";
 import { PersonDetailsModal } from "./person-details-modal";
-
-interface Transaction {
-  id: string;
-  amount: number;
-  description: string | null;
-  transactionDate: Date;
-  type: string;
-  direction: string;
-  account: { type: string; name: string };
-  category: { name: string; color: string | null } | null;
-}
 
 interface Person {
   id: string;
@@ -31,18 +21,24 @@ interface Person {
   notes: string | null;
   loanedLimit: number;
   loanedMoney: number;
-  transactions: Transaction[];
+  transactionCount: number;
+  loanCount: number;
   loans: {
     id: string;
     principalAmount: number;
     startDate: Date;
     status: string;
-    schedules: { id: string; dueDate: Date; totalDue: number; status: string; }[];
+    schedules: { id: string; dueDate: Date; totalDue: number; status: string }[];
   }[];
 }
 
 interface PeopleClientPageProps {
   initialPeople: Person[];
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  totalLoanedLimit: number;
+  totalLoanedMoney: number;
 }
 
 const mapRelationshipToLabel = {
@@ -51,7 +47,14 @@ const mapRelationshipToLabel = {
   OTHER: "Outro"
 };
 
-export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
+export function PeopleClientPage({
+  initialPeople,
+  currentPage,
+  totalPages,
+  totalCount,
+  totalLoanedLimit,
+  totalLoanedMoney,
+}: PeopleClientPageProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -63,12 +66,10 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [personToView, setPersonToView] = useState<Person | null>(null);
 
+  // Filtro local rápido na página atual (sem nova requisição)
   const filteredPeople = initialPeople.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const totalLoanedLimit = initialPeople.reduce((acc, p) => acc + p.loanedLimit, 0);
-  const totalLoanedMoney = initialPeople.reduce((acc, p) => acc + p.loanedMoney, 0);
 
   const handleEdit = (person: Person) => {
     setPersonToEdit(person);
@@ -85,6 +86,10 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
     setIsDetailsModalOpen(true);
   };
 
+  const handlePageChange = (page: number) => {
+    router.push(`/people?page=${page}`);
+  };
+
   return (
     <div className="relative min-h-[calc(100vh-80px)] p-6 md:p-8 space-y-8 overflow-hidden max-w-7xl mx-auto">
       {/* Ambient Glow Effects */}
@@ -97,6 +102,7 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">Rede de <span className="text-primary">Pessoas</span></h1>
           <p className="text-muted-foreground mt-2 text-sm max-w-lg">
             Gerencie amigos e familiares para os quais você empresta seu limite de cartão de crédito ou dinheiro.
+            <span className="text-zinc-500 ml-1">({totalCount} {totalCount === 1 ? "pessoa" : "pessoas"})</span>
           </p>
         </div>
         <Button 
@@ -110,7 +116,7 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
 
       {/* Summary Cards */}
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+        <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <CreditCard className="w-5 h-5 text-primary" />
@@ -121,7 +127,7 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
             </div>
           </div>
         </div>
-        <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+        <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
               <Banknote className="w-5 h-5 text-blue-500" />
@@ -159,7 +165,7 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
           </div>
         ) : (
           filteredPeople.map((person) => (
-            <div key={person.id} className="group relative bg-zinc-900/40 border border-white/5 hover:border-white/10 rounded-2xl p-5 backdrop-blur-sm transition-all flex flex-col">
+            <div key={person.id} className="group relative bg-zinc-900/60 border border-white/5 hover:border-white/10 rounded-2xl p-5 transition-colors flex flex-col">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="font-bold text-lg text-white mb-1 group-hover:text-primary transition-colors">{person.name}</h3>
@@ -211,23 +217,38 @@ export function PeopleClientPage({ initialPeople }: PeopleClientPageProps) {
         )}
       </div>
 
-      <AddPersonModal 
-        open={isAddModalOpen} 
-        onOpenChange={setIsAddModalOpen} 
-        personToEdit={personToEdit || undefined} 
-      />
-      
-      <DeletePersonModal 
-        open={isDeleteModalOpen} 
-        onOpenChange={setIsDeleteModalOpen} 
-        person={personToDelete} 
-      />
+      {/* Pagination */}
+      <div className="relative z-10">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+        />
+      </div>
 
-      <PersonDetailsModal
-        open={isDetailsModalOpen}
-        onOpenChange={setIsDetailsModalOpen}
-        person={personToView}
-      />
+      {isAddModalOpen && (
+        <AddPersonModal 
+          open={isAddModalOpen} 
+          onOpenChange={setIsAddModalOpen} 
+          personToEdit={personToEdit || undefined} 
+        />
+      )}
+      
+      {isDeleteModalOpen && (
+        <DeletePersonModal 
+          open={isDeleteModalOpen} 
+          onOpenChange={setIsDeleteModalOpen} 
+          person={personToDelete} 
+        />
+      )}
+
+      {isDetailsModalOpen && (
+        <PersonDetailsModal
+          open={isDetailsModalOpen}
+          onOpenChange={setIsDetailsModalOpen}
+          person={personToView}
+        />
+      )}
     </div>
   );
 }

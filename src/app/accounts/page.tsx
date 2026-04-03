@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { getAccountHistory } from "@/actions/accounts";
 import { AddAccountModal } from "./_components/add-account-modal";
 import { AccountsSummary } from "./_components/accounts-summary";
 import { BankAccountsList } from "./_components/bank-accounts-list";
@@ -17,62 +18,42 @@ export default async function AccountsPage() {
 
   const userId = session.user.id;
 
-  const [accounts, openLoans, historyTransactions] = await Promise.all([
+  const [accounts, openLoans, initialHistory] = await Promise.all([
     prisma.account.findMany({
       where: { userId, type: { in: ["BANK_ACCOUNT", "WALLET", "CASH", "OTHER"] } },
-      include: { transactions: true },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        institutionName: true,
+        initialBalance: true,
+        currentBalance: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.loan.findMany({
       where: { userId, status: "OPEN" },
       select: { principalAmount: true },
     }),
-    prisma.transaction.findMany({
-      where: {
-        userId,
-        type: { in: ["DEPOSIT", "WITHDRAWAL", "LOAN_DISBURSEMENT", "LOAN_REPAYMENT"] },
-        account: { type: { in: ["BANK_ACCOUNT", "WALLET", "CASH", "OTHER"] } },
-      },
-      include: { account: { select: { name: true } } },
-      orderBy: { transactionDate: "desc" },
-      take: 100,
-    }),
+    getAccountHistory(),
   ]);
 
-  const mappedBankAccounts = accounts.map((account) => {
-    const transactionBalance = account.transactions.reduce(
-      (acc, t) => acc + (t.direction === "CREDIT" ? Number(t.amount) : -Number(t.amount)),
-      0,
-    );
-    const initial = Number(account.initialBalance || 0);
-    const balance = initial + transactionBalance;
-
-    return {
-      id: account.id,
-      name: account.name,
-      type: account.type,
-      institutionName: account.institutionName,
-      balance,
-      initialBalance: initial,
-    };
-  });
+  const mappedBankAccounts = accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    institutionName: account.institutionName,
+    balance: Number(account.currentBalance || 0),
+    initialBalance: Number(account.initialBalance || 0),
+  }));
 
   const totalBalance = mappedBankAccounts.reduce((acc, a) => acc + a.balance, 0);
   const loanedBalance = openLoans.reduce((acc, l) => acc + Number(l.principalAmount), 0);
   const netWorth = totalBalance - loanedBalance;
 
-  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }));
 
-  const mappedHistory = historyTransactions.map((t) => ({
-    id: t.id,
-    type: t.type,
-    direction: t.direction,
-    amount: Number(t.amount),
-    description: t.description,
-    transactionDate: t.transactionDate.toISOString(),
-    accountId: t.accountId,
-    accountName: t.account.name,
-  }));
+  const accountOptions = accounts.map((a) => ({ id: a.id, name: a.name }));
 
   return (
     <div className="relative min-h-[calc(100vh-80px)] p-6 md:p-8 space-y-8 overflow-hidden max-w-7xl mx-auto">
@@ -106,7 +87,11 @@ export default async function AccountsPage() {
       ) : (
         <>
           <BankAccountsList accounts={mappedBankAccounts} />
-          <AccountHistory transactions={mappedHistory} accounts={accountOptions} />
+          <AccountHistory
+            initialTransactions={initialHistory.items}
+            initialNextCursor={initialHistory.nextCursor}
+            accounts={accountOptions}
+          />
         </>
       )}
     </div>

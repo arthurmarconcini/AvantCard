@@ -49,18 +49,8 @@ export function AddPersonModal({ open, onOpenChange, personToEdit }: AddPersonMo
     },
   });
 
-  // Re-sync se personToEdit mudar
-  useState(() => {
-    if (personToEdit) {
-      reset({
-        name: personToEdit.name,
-        relationshipType: personToEdit.relationshipType,
-        phone: personToEdit.phone || "",
-        email: personToEdit.email || "",
-        notes: personToEdit.notes || "",
-      });
-    }
-  });
+
+
 
   const onSubmit = async (data: FormValues) => {
     try {

@@ -54,7 +54,7 @@ export function CreditCardsList({ cards }: CreditCardsListProps) {
           return (
             <div
               key={card.id}
-              className="relative p-6 rounded-3xl overflow-hidden transition-all duration-300 border backdrop-blur-xl bg-zinc-900/40 border-white/5 hover:bg-zinc-900 hover:border-primary/50 hover:shadow-[0_0_30px_rgba(57,255,20,0.1)] hover:ring-1 hover:ring-primary/20 group flex flex-col justify-between"
+              className="relative p-6 rounded-3xl overflow-hidden transition-colors duration-300 border bg-zinc-900/60 border-white/5 hover:bg-zinc-900 hover:border-primary/50 hover:shadow-[0_0_30px_rgba(57,255,20,0.1)] hover:ring-1 hover:ring-primary/20 group flex flex-col justify-between"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/0 group-hover:bg-primary/10 blur-[50px] rounded-full pointer-events-none transition-colors duration-500" />
               <div className="flex justify-between items-start mb-8 relative z-10 gap-2">

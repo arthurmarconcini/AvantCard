@@ -50,7 +50,7 @@ export function BankAccountsList({ accounts }: BankAccountsListProps) {
           return (
             <div
               key={account.id}
-              className="relative p-6 rounded-3xl overflow-hidden transition-all duration-300 border backdrop-blur-xl bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60 group flex flex-col justify-between min-h-[180px]"
+              className="relative p-6 rounded-3xl overflow-hidden transition-colors duration-300 border bg-zinc-900/60 border-white/5 hover:border-white/20 hover:bg-zinc-900/80 group flex flex-col justify-between min-h-[180px]"
             >
               <div className="flex justify-between items-start mb-6 relative z-10 gap-2">
                 <div className="flex items-center gap-3 overflow-hidden">

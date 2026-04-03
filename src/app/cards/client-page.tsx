@@ -173,10 +173,10 @@ export function CardsClientPage({
                 <div
                   key={card.id}
                   onClick={() => setSelectedCardId(card.id)}
-                  className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-all duration-300 border backdrop-blur-xl flex flex-col justify-between ${
+                  className={`relative p-6 rounded-3xl cursor-pointer overflow-hidden transition-colors duration-300 border flex flex-col justify-between ${
                     isSelected
                       ? "bg-zinc-900 border-primary/50 shadow-[0_0_30px_rgba(57,255,20,0.1)] ring-1 ring-primary/20 scale-[1.02]"
-                      : "bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60"
+                      : "bg-zinc-900/60 border-white/5 hover:border-white/20 hover:bg-zinc-900/80"
                   }`}
                 >
                   {isSelected && (
@@ -394,23 +394,27 @@ export function CardsClientPage({
         </>
       )}
 
-      <AddPurchaseModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        cards={cards.map((c) => {
-          const spent = c.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
-          const limit = c.creditLimit ? Number(c.creditLimit) : 0;
-          return { id: c.id, name: c.name, availableLimit: Math.max(0, limit - spent) };
-        })}
-        categories={categories}
-        persons={persons}
-        defaultAccountId={selectedCardId || undefined}
-      />
+      {isModalOpen && (
+        <AddPurchaseModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          cards={cards.map((c) => {
+            const spent = c.transactions.reduce((acc: number, t: Transaction) => acc + Number(t.amount), 0);
+            const limit = c.creditLimit ? Number(c.creditLimit) : 0;
+            return { id: c.id, name: c.name, availableLimit: Math.max(0, limit - spent) };
+          })}
+          categories={categories}
+          persons={persons}
+          defaultAccountId={selectedCardId || undefined}
+        />
+      )}
 
-      <AddCreditCardModal
-        open={isCardModalOpen}
-        onOpenChange={setIsCardModalOpen}
-      />
+      {isCardModalOpen && (
+        <AddCreditCardModal
+          open={isCardModalOpen}
+          onOpenChange={setIsCardModalOpen}
+        />
+      )}
 
       {selectedCard && (
         <EditCreditCardModal
