@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
 import {
   Wallet,
   CreditCard,
@@ -10,7 +9,6 @@ import {
   Settings,
   HelpCircle,
   Home,
-  LogOut,
   Users,
   Coins,
 } from "lucide-react";
@@ -32,15 +30,6 @@ const secondaryNavigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-
-  const userName = session?.user?.name ?? "Usuário";
-  const userInitials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <aside className="hidden lg:flex w-64 flex-col bg-card border-r border-border min-h-screen sticky top-0">
@@ -121,28 +110,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-      
-      {/* Bottom Area / User Preview + Logout */}
-      <div className="p-4 border-t border-border/50">
-        <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg border border-border/50">
-          <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-            {userInitials}
-          </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-sm font-medium truncate">{userName}</span>
-            <span className="text-xs text-muted-foreground truncate">
-              {session?.user?.email ?? ""}
-            </span>
-          </div>
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
-            title="Sair"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
     </aside>
   );
 }
