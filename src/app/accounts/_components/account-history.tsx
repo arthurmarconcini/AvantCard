@@ -8,6 +8,7 @@ import {
   ArrowLeftRight,
   Filter,
   History,
+  Loader2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -19,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { getAccountHistory } from "@/actions/accounts";
 
 interface HistoryTransaction {
   id: string;
@@ -37,7 +40,8 @@ interface AccountOption {
 }
 
 interface AccountHistoryProps {
-  transactions: HistoryTransaction[];
+  initialTransactions: HistoryTransaction[];
+  initialNextCursor: string | null;
   accounts: AccountOption[];
 }
 
@@ -56,19 +60,76 @@ const formatDate = (dateStr: string) => {
   }).format(new Date(dateStr));
 };
 
-export function AccountHistory({ transactions, accounts }: AccountHistoryProps) {
+export function AccountHistory({ initialTransactions, initialNextCursor, accounts }: AccountHistoryProps) {
+  const [transactions, setTransactions] = useState(initialTransactions);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const filtered = transactions.filter((t) => {
-    if (selectedAccount !== "all" && t.accountId !== selectedAccount) return false;
-    if (selectedType !== "all" && t.type !== selectedType) return false;
-    if (dateFrom && new Date(t.transactionDate) < new Date(dateFrom + "T00:00:00")) return false;
-    if (dateTo && new Date(t.transactionDate) > new Date(dateTo + "T23:59:59")) return false;
-    return true;
-  });
+  function getCurrentFilters() {
+    return {
+      accountId: selectedAccount !== "all" ? selectedAccount : undefined,
+      type: selectedType !== "all" ? selectedType : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    };
+  }
+
+  async function applyFilters(newFilters: {
+    accountId?: string;
+    type?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    setIsFiltering(true);
+    try {
+      const result = await getAccountHistory(newFilters);
+      setTransactions(result.items);
+      setNextCursor(result.nextCursor);
+    } catch {
+      // Mantém estado atual em caso de erro
+    } finally {
+      setIsFiltering(false);
+    }
+  }
+
+  async function handleFilterChange(
+    key: "accountId" | "type" | "dateFrom" | "dateTo",
+    value: string
+  ) {
+    const filters = getCurrentFilters();
+    if (value === "all" || value === "") {
+      delete filters[key];
+    } else {
+      filters[key] = value;
+    }
+
+    if (key === "accountId") setSelectedAccount(value);
+    if (key === "type") setSelectedType(value);
+    if (key === "dateFrom") setDateFrom(value);
+    if (key === "dateTo") setDateTo(value);
+
+    await applyFilters(filters);
+  }
+
+  async function loadMore() {
+    if (!nextCursor) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await getAccountHistory(getCurrentFilters(), nextCursor);
+      setTransactions((prev) => [...prev, ...result.items]);
+      setNextCursor(result.nextCursor);
+    } catch {
+      // Silencioso
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   return (
     <div className="space-y-6 mt-12 relative z-10">
@@ -90,7 +151,7 @@ export function AccountHistory({ transactions, accounts }: AccountHistoryProps) 
         <div className="flex flex-wrap gap-3 flex-1">
           <div className="space-y-1 min-w-[160px]">
             <Label className="text-[11px] text-zinc-500 font-medium">Conta</Label>
-            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+            <Select value={selectedAccount} onValueChange={(v) => handleFilterChange("accountId", v)}>
               <SelectTrigger className="h-9 bg-black/20 border-white/5 text-white text-xs rounded-lg">
                 <SelectValue />
               </SelectTrigger>
@@ -107,7 +168,7 @@ export function AccountHistory({ transactions, accounts }: AccountHistoryProps) 
 
           <div className="space-y-1 min-w-[160px]">
             <Label className="text-[11px] text-zinc-500 font-medium">Tipo</Label>
-            <Select value={selectedType} onValueChange={setSelectedType}>
+            <Select value={selectedType} onValueChange={(v) => handleFilterChange("type", v)}>
               <SelectTrigger className="h-9 bg-black/20 border-white/5 text-white text-xs rounded-lg">
                 <SelectValue />
               </SelectTrigger>
@@ -126,7 +187,7 @@ export function AccountHistory({ transactions, accounts }: AccountHistoryProps) 
             <Input
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
               className="h-9 bg-black/20 border-white/5 text-white text-xs rounded-lg w-[140px] scheme-dark"
             />
           </div>
@@ -136,7 +197,7 @@ export function AccountHistory({ transactions, accounts }: AccountHistoryProps) 
             <Input
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => handleFilterChange("dateTo", e.target.value)}
               className="h-9 bg-black/20 border-white/5 text-white text-xs rounded-lg w-[140px] scheme-dark"
             />
           </div>
@@ -144,13 +205,18 @@ export function AccountHistory({ transactions, accounts }: AccountHistoryProps) 
       </div>
 
       {/* Transaction List */}
-      {filtered.length === 0 ? (
+      {isFiltering ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 text-primary animate-spin mb-2" />
+          <p className="text-sm text-zinc-500">Filtrando...</p>
+        </div>
+      ) : transactions.length === 0 ? (
         <div className="py-12 border-2 border-dashed border-white/5 rounded-2xl text-center">
           <p className="text-zinc-500 text-sm">Nenhuma movimentação encontrada para os filtros aplicados.</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((t) => {
+          {transactions.map((t) => {
             const config = TYPE_CONFIG[t.type] || {
               label: t.type,
               icon: ArrowLeftRight,
@@ -190,6 +256,28 @@ export function AccountHistory({ transactions, accounts }: AccountHistoryProps) 
               </div>
             );
           })}
+
+          {/* Carregar mais */}
+          {nextCursor && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-zinc-900/40 border-white/5 hover:border-white/20 hover:bg-zinc-900/60 text-zinc-400 hover:text-white text-xs transition-all duration-200"
+                disabled={isLoadingMore}
+                onClick={loadMore}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  "Carregar mais"
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
