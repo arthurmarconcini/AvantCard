@@ -216,6 +216,7 @@ model Loan {
   expectedEndDate DateTime?  @map("expected_end_date")
   status          LoanStatus @default(OPEN)
   description     String?
+  isArchived      Boolean    @default(false) @map("is_archived")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

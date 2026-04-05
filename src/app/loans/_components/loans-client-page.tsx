@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, HelpCircle, Layers, CheckCircle2, AlertCircle, CalendarDays, Coins, ArrowRight } from "lucide-react";
+import { Plus, Search, HelpCircle, Layers, CheckCircle2, AlertCircle, CalendarDays, Coins, ArrowRight, MoreVertical, Archive, ArchiveRestore } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,14 @@ import { formatCurrency } from "@/lib/format";
 import { CreateLoanModal } from "./create-loan-modal";
 import { LoanDetailsModal } from "./loan-details-modal";
 import { useSearchParams } from "next/navigation";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { toggleArchiveLoan } from "@/actions/loans";
 
 // Extracted from actions/loans
 interface LoanSchedule {
@@ -35,6 +43,7 @@ interface Loan {
   person: { id: string; name: string };
   originAccount: { id: string; name: string; currency: string };
   schedules: LoanSchedule[];
+  isArchived: boolean;
 }
 
 interface Metrics {
@@ -56,14 +65,32 @@ export function LoansClientPage({ initialMetrics, initialLoans, people, accounts
   const preSelectedPersonId = searchParams.get("newLoanPersonId");
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterTab, setFilterTab] = useState<"ALL" | "OPEN" | "CLOSED" | "ARCHIVED">("OPEN");
   const [isAddModalOpen, setIsAddModalOpen] = useState(!!preSelectedPersonId);
   const [loanIdToView, setLoanIdToView] = useState<string | null>(null);
 
   const loanToView = initialLoans.find(l => l.id === loanIdToView) || null;
 
-  const filteredLoans = initialLoans.filter(l => 
-    l.person.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  async function handleToggleArchive(e: React.MouseEvent, loanId: string) {
+    e.stopPropagation();
+    try {
+      const res = await toggleArchiveLoan(loanId);
+      toast.success(res.isArchived ? "Empréstimo arquivado." : "Empréstimo desarquivado.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Erro ao atualizar empréstimo.";
+      toast.error(message);
+    }
+  }
+
+  const filteredLoans = initialLoans.filter(l => {
+    const matchesName = l.person.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTab = 
+      filterTab === "ALL" ? !l.isArchived :
+      filterTab === "OPEN" ? !l.isArchived && l.status !== "CLOSED" :
+      filterTab === "CLOSED" ? !l.isArchived && l.status === "CLOSED" :
+      filterTab === "ARCHIVED" ? l.isArchived : true;
+    return matchesName && matchesTab;
+  });
 
   return (
     <div className="relative min-h-[calc(100vh-80px)] p-6 md:p-8 space-y-8 overflow-hidden max-w-7xl mx-auto">
@@ -132,14 +159,30 @@ export function LoansClientPage({ initialMetrics, initialLoans, people, accounts
       </div>
 
       {/* Control Bar */}
-      <div className="relative z-10 flex items-center gap-3 w-full max-w-sm">
-        <div className="relative w-full">
+      <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4 w-full justify-between">
+        <div className="flex bg-zinc-900/60 border border-white/5 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar gap-1">
+          {(["OPEN", "CLOSED", "ALL", "ARCHIVED"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilterTab(tab)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                filterTab === tab ? "bg-zinc-800 text-white shadow-sm ring-1 ring-white/10" : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+              }`}
+            >
+              {tab === "OPEN" && "Ativos"}
+              {tab === "CLOSED" && "Quitados"}
+              {tab === "ALL" && "Todos"}
+              {tab === "ARCHIVED" && "Arquivados"}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input 
             placeholder="Buscar por pessoa..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 bg-zinc-900/50 border-white/5 focus-visible:ring-primary/20 text-white placeholder:text-zinc-600 h-10 w-full"
+            className="pl-9 bg-zinc-900/50 border-white/5 focus-visible:ring-primary/20 text-white placeholder:text-zinc-600 h-10 w-full rounded-xl"
           />
         </div>
       </div>
@@ -158,35 +201,61 @@ export function LoansClientPage({ initialMetrics, initialLoans, people, accounts
           filteredLoans.map((loan) => {
             const paidSchedules = loan.schedules.filter(s => s.status === 'PAID').length;
             const totalSchedules = loan.schedules.length;
+            const isOverdue = loan.schedules.some(s => s.status === "OVERDUE" || (s.status === "PENDING" && new Date(s.dueDate) < new Date()));
 
             return (
               <div 
                 key={loan.id} 
-                onClick={() => setLoanIdToView(loan.id)}
-                className="group relative bg-zinc-900/40 border border-white/5 hover:border-white/20 rounded-2xl p-5 backdrop-blur-sm transition-all flex flex-col cursor-pointer"
+                className={`group relative bg-zinc-900/40 border hover:border-white/20 rounded-2xl p-5 backdrop-blur-sm transition-all flex flex-col ${
+                  isOverdue && !loan.isArchived ? "border-red-500/40 shadow-[0_0_15px_-3px_rgba(239,68,68,0.15)]" : "border-white/5"
+                }`}
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-white mb-1 group-hover:text-primary transition-colors">{loan.person.name}</h3>
+                <div className="flex justify-between items-start mb-4 gap-2">
+                  <div className="flex-1 overflow-hidden" onClick={() => setLoanIdToView(loan.id)}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-lg text-white group-hover:text-primary transition-colors cursor-pointer truncate">
+                        {loan.person.name}
+                      </h3>
+                      {isOverdue && !loan.isArchived && <Badge variant="destructive" className="bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] uppercase font-bold py-0 h-5 shrink-0">Atrasado</Badge>}
+                    </div>
                     <Badge variant="secondary" className={`bg-white/5 text-xs font-medium border-0 ${loan.status === 'CLOSED' ? 'text-emerald-400' : 'text-zinc-400'}`}>
                       {loan.status === 'CLOSED' ? 'Quitado' : 'Aberto'}
                     </Badge>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-zinc-500 mb-1">Total a Receber</p>
-                    <p className="font-bold text-white">{formatCurrency(loan.totalExpected)}</p>
+                  <div className="flex items-start gap-1">
+                    <div onClick={() => setLoanIdToView(loan.id)} className="cursor-pointer text-right min-w-[100px]">
+                      <p className="text-xs text-zinc-500 mb-0.5">Total a Receber</p>
+                      <p className="font-bold text-white leading-tight">{formatCurrency(loan.totalExpected)}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white -mr-2 bg-transparent hover:bg-white/5">
+                           <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-zinc-950 border-white/10 text-zinc-300 w-40">
+                        <DropdownMenuItem className="cursor-pointer focus:bg-white/5" onClick={() => setLoanIdToView(loan.id)}>
+                          <Layers className="w-4 h-4 mr-2" /> Detalhes
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer focus:bg-white/5" onClick={(e) => handleToggleArchive(e, loan.id)}>
+                          {loan.isArchived ? <ArchiveRestore className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2 text-amber-500" />}
+                          {loan.isArchived ? "Desarquivar" : <span className="text-amber-500">Arquivar</span>}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
-                <div className="space-y-4 mb-6 flex-1 bg-black/20 rounded-xl p-4 border border-white/5">
+                <div className="space-y-4 mb-6 flex-1 bg-black/20 rounded-xl p-4 border border-white/5 cursor-pointer" onClick={() => setLoanIdToView(loan.id)}>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-zinc-400 flex items-center gap-2"><CalendarDays className="w-4 h-4" /> Progresso</span>
                     <span className="font-semibold text-white">{paidSchedules} de {totalSchedules} parcelas</span>
                   </div>
-                  <Progress value={loan.progress} className="h-2 bg-zinc-800" />
+                  <Progress value={loan.progress} className={`h-2 bg-zinc-800 ${isOverdue && !loan.isArchived ? "[&>div]:bg-red-500" : ""}`} />
                 </div>
 
                 <Button 
+                  onClick={() => setLoanIdToView(loan.id)}
                   variant="ghost" 
                   className="w-full justify-between px-0 text-zinc-400 hover:text-white hover:bg-transparent group-hover:text-primary transition-colors"
                 >

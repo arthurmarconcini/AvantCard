@@ -18,6 +18,9 @@ export async function POST(req: Request) {
 
     const isCreditCard = parsedData.type === "CREDIT_CARD";
 
+    const creditLimitVal = isCreditCard && parsedData.creditLimit ? Number(parsedData.creditLimit) : null;
+    const initialBalanceVal = !isCreditCard && parsedData.initialBalance ? Number(parsedData.initialBalance) : null;
+
     const account = await prisma.account.create({
       data: {
         userId: session.user.id,
@@ -25,16 +28,11 @@ export async function POST(req: Request) {
         type: parsedData.type,
         institutionName: parsedData.institutionName || null,
         last4: parsedData.last4 || null,
-        creditLimit:
-          isCreditCard && parsedData.creditLimit
-            ? Number(parsedData.creditLimit)
-            : null,
+        creditLimit: creditLimitVal,
         billingDay: isCreditCard ? parsedData.billingDay : null,
         dueDay: isCreditCard ? parsedData.dueDay : null,
-        initialBalance:
-          !isCreditCard && parsedData.initialBalance
-            ? Number(parsedData.initialBalance)
-            : null,
+        initialBalance: initialBalanceVal,
+        currentBalance: isCreditCard ? (creditLimitVal || 0) : (initialBalanceVal || 0),
       },
     });
 

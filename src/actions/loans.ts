@@ -53,10 +53,12 @@ export async function getLoansDashboard() {
       }
     });
 
-    if (loan.status === "OPEN") {
-      totalPrincipal += principal;
-      // Subtracting principal from expected gives interest
-      totalInterestExpected += (loanTotalExpected - principal);
+    if (!loan.isArchived) {
+      if (loan.status === "OPEN") {
+        totalPrincipal += principal;
+        // Subtracting principal from expected gives interest
+        totalInterestExpected += (loanTotalExpected - principal);
+      }
     }
 
     return {
@@ -76,8 +78,35 @@ export async function getLoansDashboard() {
         principalDue: Number(s.principalDue),
         interestDue: Number(s.interestDue),
         totalDue: Number(s.totalDue),
-      }))
+      })),
+      isArchived: loan.isArchived,
     };
+  });
+
+  // Sort logic: 
+  // 1. Archived at the bottom
+  // 2. CLOSED near the bottom
+  // 3. OVERDUE at the top
+  // 4. Closest pending schedule next
+  mappedLoans.sort((a, b) => {
+    if (a.isArchived !== b.isArchived) return a.isArchived ? 1 : -1;
+    if (a.status === "CLOSED" && b.status !== "CLOSED") return 1;
+    if (a.status !== "CLOSED" && b.status === "CLOSED") return -1;
+    
+    const aOverdue = a.schedules.some(s => s.status === "OVERDUE" || (s.status === "PENDING" && new Date(s.dueDate) < new Date()));
+    const bOverdue = b.schedules.some(s => s.status === "OVERDUE" || (s.status === "PENDING" && new Date(s.dueDate) < new Date()));
+
+    if (aOverdue && !bOverdue) return -1;
+    if (!aOverdue && bOverdue) return 1;
+
+    const aNext = a.schedules.find(s => s.status === "PENDING")?.dueDate;
+    const bNext = b.schedules.find(s => s.status === "PENDING")?.dueDate;
+    
+    if (aNext && bNext) return new Date(aNext).getTime() - new Date(bNext).getTime();
+    if (aNext) return -1;
+    if (bNext) return 1;
+
+    return 0;
   });
 
   return {
@@ -361,4 +390,22 @@ export async function revertInstallment(scheduleId: string) {
   revalidatePath("/");
 
   return { success: true };
+}
+
+export async function toggleArchiveLoan(loanId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Não autorizado");
+
+  const loan = await prisma.loan.findUnique({ where: { id: loanId, userId: session.user.id } });
+  if (!loan) throw new Error("Empréstimo não encontrado");
+
+  const updated = await prisma.loan.update({
+    where: { id: loanId },
+    data: { isArchived: !loan.isArchived }
+  });
+
+  revalidatePath("/loans");
+  revalidatePath("/");
+
+  return { success: true, isArchived: updated.isArchived };
 }
