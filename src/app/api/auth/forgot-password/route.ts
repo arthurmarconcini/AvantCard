@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { sendPasswordResetEmail } from "@/lib/mail";
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
     // Sempre retorna sucesso para não revelar se o email existe
     if (!user) {
       return NextResponse.json({
-        message: "Se o email estiver cadastrado, você receberá um link de redefinição.",
+        message:
+          "Se o email estiver cadastrado, você receberá um link de redefinição.",
       });
     }
 
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
 
     // Cria novo token com expiração de 1 hora
     const token = randomUUID();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (prisma as any).passwordResetToken.create({
@@ -51,14 +53,16 @@ export async function POST(request: Request) {
       },
     });
 
-    // TODO: Integrar envio de email (Resend/Nodemailer)
-    // Por agora, retorna o link para fins de teste
     const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
 
+    // Envio do email em background — não bloqueia o response
+    sendPasswordResetEmail(user.email, user.name, resetLink).catch((err) => {
+      console.error("[FORGOT_PASSWORD] Falha ao enviar email:", err);
+    });
+
     return NextResponse.json({
-      message: "Se o email estiver cadastrado, você receberá um link de redefinição.",
-      // Remover em produção:
-      _debug: { resetLink },
+      message:
+        "Se o email estiver cadastrado, você receberá um link de redefinição.",
     });
   } catch (error) {
     console.error("[FORGOT_PASSWORD]", error);

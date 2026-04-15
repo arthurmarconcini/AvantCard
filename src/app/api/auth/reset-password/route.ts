@@ -22,7 +22,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Valida força da senha
     const strength = validatePasswordStrength(password);
     if (!strength.isValid) {
       return NextResponse.json(
@@ -35,7 +34,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Usando cast para any devido a instabilidade de tipagem do Prisma 7 adapter-pg
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resetToken = await (prisma as any).passwordResetToken.findUnique({
       where: { token },
@@ -44,12 +42,11 @@ export async function POST(request: Request) {
 
     if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
       return NextResponse.json(
-        { error: "Token inválido ou expirado." },
+        { error: "Token inválido ou expirado. Solicite um novo link." },
         { status: 400 }
       );
     }
 
-    // Hash da nova senha e atualização
     const passwordHash = await hash(password, 12);
 
     await prisma.$transaction([

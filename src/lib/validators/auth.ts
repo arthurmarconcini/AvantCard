@@ -49,3 +49,27 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+// ---------------------------------------------------------------------------
+// Reset Password
+// ---------------------------------------------------------------------------
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "Token é obrigatório."),
+    password: z
+      .string()
+      .min(8, "A senha deve ter no mínimo 8 caracteres.")
+      .regex(/[A-Z]/, "A senha deve conter pelo menos 1 letra maiúscula.")
+      .regex(/[0-9]/, "A senha deve conter pelo menos 1 número.")
+      .regex(
+        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/,
+        "A senha deve conter pelo menos 1 caractere especial."
+      ),
+    confirmPassword: z.string().min(1, "Confirme sua nova senha."),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem.",
+    path: ["confirmPassword"],
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
