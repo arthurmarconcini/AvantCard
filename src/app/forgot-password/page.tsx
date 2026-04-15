@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Mail, CheckCircle, RefreshCw } from "lucide-react";
+import { AuthErrorBanner } from "@/components/ui/auth-error-banner";
 
 const COOLDOWN_SECONDS = 60;
 
@@ -125,12 +126,7 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
-            {serverError && (
-              <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                {serverError}
-              </div>
-            )}
+            <AuthErrorBanner message={serverError} />
 
             <div className="space-y-1.5">
               <Label

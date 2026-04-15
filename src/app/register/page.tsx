@@ -7,13 +7,18 @@ import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validators/auth";
+import { validatePasswordStrength } from "@/lib/password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrengthBar } from "@/components/ui/password-strength-bar";
+import { AuthErrorBanner } from "@/components/ui/auth-error-banner";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
+  const [passwordScore, setPasswordScore] = useState(0);
 
   const {
     register,
@@ -22,6 +27,12 @@ export default function RegisterPage() {
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
   });
+
+  function handlePasswordChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    const result = validatePasswordStrength(value);
+    setPasswordScore(value.length === 0 ? 0 : result.score);
+  }
 
   async function onSubmit(data: RegisterInput) {
     setServerError("");
@@ -47,7 +58,6 @@ export default function RegisterPage() {
     });
 
     if (signInResult?.error) {
-      // Conta criada mas falhou o auto-login — redirecionar para login
       router.push("/login");
       return;
     }
@@ -73,12 +83,7 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
-          {serverError && (
-            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 flex items-center gap-3">
-               <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              {serverError}
-            </div>
-          )}
+          <AuthErrorBanner message={serverError} />
 
           <div className="space-y-5">
             <div className="space-y-1.5">
@@ -119,20 +124,19 @@ export default function RegisterPage() {
               <Label htmlFor="password" className="text-zinc-300 font-medium ml-1 block">
                 Senha
               </Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
                 placeholder="••••••••"
-                {...register("password")}
+                {...register("password", {
+                  onChange: handlePasswordChange,
+                })}
               />
               {errors.password && (
-                 <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">{errors.password.message}</p>
+                <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">{errors.password.message}</p>
               )}
-              <p className="text-[11px] text-zinc-500 mt-2 ml-1 leading-relaxed">
-                Mínimo 8 caracteres, 1 maiúscula, 1 número e 1 especial.
-              </p>
+              <PasswordStrengthBar score={passwordScore} showHint />
             </div>
           </div>
 

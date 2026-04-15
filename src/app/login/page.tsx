@@ -10,6 +10,8 @@ import { loginSchema, type LoginInput } from "@/lib/validators/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { AuthErrorBanner } from "@/components/ui/auth-error-banner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,12 +60,7 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
-          {serverError && (
-            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 flex items-center gap-3">
-               <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              {serverError}
-            </div>
-          )}
+          <AuthErrorBanner message={serverError} />
 
           <div className="space-y-5">
             <div className="space-y-1.5">
@@ -97,9 +94,8 @@ export default function LoginPage() {
                   </Link>
                 </div>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
                 placeholder="••••••••"

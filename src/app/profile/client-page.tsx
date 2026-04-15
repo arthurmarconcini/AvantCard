@@ -5,8 +5,11 @@ import { User, Shield, Save, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrengthBar } from "@/components/ui/password-strength-bar";
 import { toast } from "sonner";
 import { updateUserProfile, updateUserPassword } from "@/actions/user";
+import { validatePasswordStrength } from "@/lib/password";
 
 interface ProfileClientPageProps {
   user: {
@@ -28,6 +31,14 @@ export function ProfileClientPage({ user }: ProfileClientPageProps) {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordScore, setPasswordScore] = useState(0);
+
+  function handleNewPassChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setNewPass(value);
+    const result = validatePasswordStrength(value);
+    setPasswordScore(value.length === 0 ? 0 : result.score);
+  }
 
   async function handleProfileUpdate(e: React.FormEvent) {
     e.preventDefault();
@@ -174,8 +185,7 @@ export function ProfileClientPage({ user }: ProfileClientPageProps) {
           <form onSubmit={handlePasswordUpdate} className="space-y-5">
             <div className="space-y-2">
               <Label className="text-zinc-300 font-medium">Senha Atual</Label>
-              <Input
-                type="password"
+              <PasswordInput
                 value={currentPass}
                 onChange={(e) => setCurrentPass(e.target.value)}
                 placeholder="Sua senha atual"
@@ -187,20 +197,19 @@ export function ProfileClientPage({ user }: ProfileClientPageProps) {
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-2 col-span-2 md:col-span-1">
                  <Label className="text-zinc-300 font-medium">Nova Senha</Label>
-                 <Input
-                   type="password"
+                 <PasswordInput
                    value={newPass}
-                   onChange={(e) => setNewPass(e.target.value)}
+                   onChange={handleNewPassChange}
                    placeholder="Mín. 8 caracteres"
                    className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-cyan-500 focus-visible:border-cyan-500/50 transition-all rounded-xl"
                    required
                  />
+                 <PasswordStrengthBar score={passwordScore} showHint />
                </div>
                
                <div className="space-y-2 col-span-2 md:col-span-1">
                  <Label className="text-zinc-300 font-medium">Confirmar Senha</Label>
-                 <Input
-                   type="password"
+                 <PasswordInput
                    value={confirmPass}
                    onChange={(e) => setConfirmPass(e.target.value)}
                    placeholder="Confirme a nova"

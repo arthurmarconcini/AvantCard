@@ -11,34 +11,18 @@ import {
 } from "@/lib/validators/auth";
 import { validatePasswordStrength } from "@/lib/password";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrengthBar } from "@/components/ui/password-strength-bar";
+import { AuthErrorBanner } from "@/components/ui/auth-error-banner";
 import {
   ArrowLeft,
   CheckCircle,
-  Eye,
-  EyeOff,
   ShieldAlert,
   KeyRound,
 } from "lucide-react";
 
 type PageState = "form" | "success" | "invalid-token";
-
-const STRENGTH_COLORS = [
-  "bg-red-500",
-  "bg-orange-500",
-  "bg-yellow-500",
-  "bg-emerald-500",
-  "bg-primary",
-];
-
-const STRENGTH_LABELS = [
-  "Muito fraca",
-  "Fraca",
-  "Razoável",
-  "Boa",
-  "Excelente",
-];
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
@@ -48,8 +32,6 @@ export default function ResetPasswordPage() {
     token ? "form" : "invalid-token"
   );
   const [serverError, setServerError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [passwordScore, setPasswordScore] = useState(0);
 
   const {
@@ -173,15 +155,9 @@ export default function ResetPasswordPage() {
               onSubmit={handleSubmit(onSubmit)}
               className="mt-8 space-y-6"
             >
-              {/* Token oculto */}
               <input type="hidden" {...register("token")} />
 
-              {serverError && (
-                <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                  {serverError}
-                </div>
-              )}
+              <AuthErrorBanner message={serverError} />
 
               <div className="space-y-5">
                 {/* Nova Senha */}
@@ -192,72 +168,21 @@ export default function ResetPasswordPage() {
                   >
                     Nova senha
                   </Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4 pr-12"
-                      placeholder="••••••••"
-                      {...register("password", {
-                        onChange: handlePasswordChange,
-                      })}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-                      tabIndex={-1}
-                      aria-label={
-                        showPassword ? "Ocultar senha" : "Mostrar senha"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4.5 w-4.5" />
-                      ) : (
-                        <Eye className="h-4.5 w-4.5" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Barra de força */}
-                  {passwordScore > 0 && (
-                    <div className="space-y-1.5 mt-2">
-                      <div className="flex gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                              i < passwordScore
-                                ? STRENGTH_COLORS[passwordScore - 1]
-                                : "bg-zinc-800"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p
-                        className={`text-[11px] font-medium ml-0.5 transition-colors ${
-                          passwordScore <= 2
-                            ? "text-red-400"
-                            : passwordScore <= 3
-                              ? "text-yellow-400"
-                              : "text-primary"
-                        }`}
-                      >
-                        {STRENGTH_LABELS[passwordScore - 1]}
-                      </p>
-                    </div>
-                  )}
-
+                  <PasswordInput
+                    id="password"
+                    autoComplete="new-password"
+                    className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
+                    placeholder="••••••••"
+                    {...register("password", {
+                      onChange: handlePasswordChange,
+                    })}
+                  />
                   {errors.password && (
                     <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">
                       {errors.password.message}
                     </p>
                   )}
-
-                  <p className="text-[11px] text-zinc-500 mt-2 ml-1 leading-relaxed">
-                    Mínimo 8 caracteres, 1 maiúscula, 1 número e 1 especial.
-                  </p>
+                  <PasswordStrengthBar score={passwordScore} showHint />
                 </div>
 
                 {/* Confirmar Senha */}
@@ -268,31 +193,13 @@ export default function ResetPasswordPage() {
                   >
                     Confirmar senha
                   </Label>
-                  <div className="relative">
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirm ? "text" : "password"}
-                      autoComplete="new-password"
-                      className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4 pr-12"
-                      placeholder="••••••••"
-                      {...register("confirmPassword")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-                      tabIndex={-1}
-                      aria-label={
-                        showConfirm ? "Ocultar senha" : "Mostrar senha"
-                      }
-                    >
-                      {showConfirm ? (
-                        <EyeOff className="h-4.5 w-4.5" />
-                      ) : (
-                        <Eye className="h-4.5 w-4.5" />
-                      )}
-                    </button>
-                  </div>
+                  <PasswordInput
+                    id="confirmPassword"
+                    autoComplete="new-password"
+                    className="h-12 bg-black/20 border-white/5 text-white placeholder:text-zinc-600 focus-visible:ring-primary focus-visible:border-primary/50 transition-all rounded-xl pl-4"
+                    placeholder="••••••••"
+                    {...register("confirmPassword")}
+                  />
                   {errors.confirmPassword && (
                     <p className="mt-1.5 text-xs text-red-500 ml-1 font-medium">
                       {errors.confirmPassword.message}
